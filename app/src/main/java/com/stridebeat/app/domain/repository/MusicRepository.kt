@@ -30,5 +30,6 @@ interface MusicRepository {
     suspend fun switchSource(newSource: MusicSource): Boolean
     suspend fun selectPlaylist(playlist: WorkoutPlaylist)
     suspend fun playTrack(track: Track)
+    suspend fun searchOnlineTracks(query: String): List<Track>
     suspend fun clearSessionTracks()
 }

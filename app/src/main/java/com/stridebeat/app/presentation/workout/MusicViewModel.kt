@@ -8,6 +8,7 @@ import com.stridebeat.app.domain.model.Track
 import com.stridebeat.app.domain.model.WorkoutPlaylist
 import com.stridebeat.app.domain.repository.MusicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -64,6 +65,26 @@ class MusicViewModel @Inject constructor(
     fun selectPlaylist(playlist: WorkoutPlaylist) {
         viewModelScope.launch {
             musicRepository.selectPlaylist(playlist)
+        }
+    }
+
+    private val _searchResults = MutableStateFlow<List<Track>>(emptyList())
+    val searchResults: StateFlow<List<Track>> = _searchResults
+
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching: StateFlow<Boolean> = _isSearching
+
+    fun searchOnlineTracks(query: String) {
+        if (query.isBlank()) {
+            _searchResults.value = emptyList()
+            _isSearching.value = false
+            return
+        }
+        viewModelScope.launch {
+            _isSearching.value = true
+            val results = musicRepository.searchOnlineTracks(query)
+            _searchResults.value = results
+            _isSearching.value = false
         }
     }
 

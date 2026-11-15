@@ -8,8 +8,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -59,6 +61,8 @@ fun WorkoutScreen(
     val availablePlaylists by musicViewModel.availablePlaylists.collectAsStateWithLifecycle()
     val activePlaylist by musicViewModel.activePlaylist.collectAsStateWithLifecycle()
     val playedTracksInSession by musicViewModel.playedTracksInSession.collectAsStateWithLifecycle()
+    val searchResults by musicViewModel.searchResults.collectAsStateWithLifecycle()
+    val isSearching by musicViewModel.isSearching.collectAsStateWithLifecycle()
 
     var selectedWorkoutType by remember { mutableStateOf(WorkoutType.RUN) }
     var showFinishDialog by remember { mutableStateOf(false) }
@@ -100,12 +104,15 @@ fun WorkoutScreen(
             availablePlaylists = availablePlaylists,
             activePlaylist = activePlaylist,
             playedTracks = playedTracksInSession,
+            searchResults = searchResults,
+            isSearching = isSearching,
             onTogglePlayPause = { musicViewModel.togglePlayPause() },
             onSkipNext = { musicViewModel.skipNext() },
             onSkipPrevious = { musicViewModel.skipPrevious() },
             onSwitchSource = { newSource -> musicViewModel.switchSource(newSource) },
             onSelectPlaylist = { playlist -> musicViewModel.selectPlaylist(playlist) },
             onPlayTrack = { track -> musicViewModel.playTrack(track) },
+            onSearchOnline = { query -> musicViewModel.searchOnlineTracks(query) },
             onDismiss = { showMusicSheet = false }
         )
     }
@@ -157,13 +164,15 @@ fun WorkoutScreen(
     if (!isTracking) {
         // =========================================================================
         // LAYAR PERSIAPAN (PRE-WORKOUT) — Tidak langsung jalan sebelum tombol ditekan
+        // Desain luas, modern, bernapas (tidak dempet), dan nyaman di semua ukuran layar
         // =========================================================================
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Mode Selector
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -171,26 +180,34 @@ fun WorkoutScreen(
                     text = "PILIH AKTIVITAS",
                     style = MaterialTheme.typography.labelSmall,
                     color = TextMutedDark,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
                 )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     WorkoutType.values().forEach { type ->
                         val isSelected = type == selectedWorkoutType
                         Surface(
                             modifier = Modifier
                                 .weight(1f)
+                                .height(58.dp)
                                 .clickable { selectedWorkoutType = type },
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isSelected) SportPrimary.copy(alpha = 0.2f) else DarkSurfaceElevated,
-                            border = if (isSelected) androidx.compose.foundation.BorderStroke(1.5.dp, SportPrimary) else null
+                            shape = RoundedCornerShape(16.dp),
+                            color = if (isSelected) SportPrimary.copy(alpha = 0.18f) else DarkSurfaceElevated,
+                            border = androidx.compose.foundation.BorderStroke(
+                                if (isSelected) 1.5.dp else 1.dp,
+                                if (isSelected) SportPrimary else DarkBorder
+                            )
                         ) {
-                            Column(
-                                modifier = Modifier.padding(vertical = 12.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 8.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
                                     imageVector = when (type) {
@@ -200,14 +217,15 @@ fun WorkoutScreen(
                                     },
                                     contentDescription = null,
                                     tint = if (isSelected) SportPrimary else TextMutedDark,
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(20.dp)
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = type.displayName,
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = if (isSelected) SportPrimary else TextSecondaryDark,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
                                 )
                             }
                         }
@@ -215,12 +233,13 @@ fun WorkoutScreen(
                 }
             }
 
-            // Map Box Preview
+            // Map Box Preview (Ketinggian terukur dan proporsional)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
-                    .clip(RoundedCornerShape(16.dp))
+                    .height(230.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .border(1.dp, DarkBorder, RoundedCornerShape(20.dp))
             ) {
                 RouteMapCanvas(
                     routePoints = emptyList(),
@@ -231,7 +250,7 @@ fun WorkoutScreen(
                 Surface(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(12.dp),
+                        .padding(14.dp),
                     shape = RoundedCornerShape(20.dp),
                     color = DarkBackground.copy(alpha = 0.85f),
                     border = androidx.compose.foundation.BorderStroke(1.dp, SportPrimary.copy(alpha = 0.5f))
@@ -257,44 +276,39 @@ fun WorkoutScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Mini Music Bar di Pre-Workout
+            // Mini Music Bar di Pre-Workout (Spacious, album art icon, 2-baris rapi)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { showMusicSheet = true },
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    if (activeSource == MusicSource.SPOTIFY) SpotifyBrand.copy(alpha = 0.4f) else YouTubeBrand.copy(alpha = 0.4f)
-                )
+                border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp),
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.weight(1f)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(if (activeSource == MusicSource.SPOTIFY) SpotifyBrand.copy(alpha = 0.2f) else YouTubeBrand.copy(alpha = 0.2f)),
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(SportPrimary.copy(alpha = 0.15f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = if (isMusicPlaying) Icons.Default.GraphicEq else Icons.Default.MusicNote,
                                 contentDescription = null,
-                                tint = if (activeSource == MusicSource.SPOTIFY) SpotifyBrand else YouTubeBrand,
-                                modifier = Modifier.size(20.dp)
+                                tint = SportPrimary,
+                                modifier = Modifier.size(22.dp)
                             )
                         }
 
@@ -306,28 +320,34 @@ fun WorkoutScreen(
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1
                             )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Tap untuk cari lagu & putar langsung di HP",
+                                text = "${currentTrack?.artist ?: "StrideBeat"} • Ketuk untuk cari lagu",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = SportPrimary,
+                                color = TextSecondaryDark,
                                 maxLines = 1
                             )
                         }
                     }
 
-                    IconButton(onClick = { musicViewModel.togglePlayPause() }) {
+                    FilledIconButton(
+                        onClick = { musicViewModel.togglePlayPause() },
+                        modifier = Modifier.size(42.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = SportPrimary
+                        )
+                    ) {
                         Icon(
                             imageVector = if (isMusicPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = "Play/Pause",
-                            tint = if (activeSource == MusicSource.SPOTIFY) SpotifyBrand else YouTubeBrand
+                            tint = DarkBackground,
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Tombol MULAI OLAHRAGA
+            // Tombol MULAI OLAHRAGA (Floating Pill Modern dengan Margin Mewah)
             Button(
                 onClick = {
                     val hasFine = ContextCompat.checkSelfPermission(
@@ -348,11 +368,12 @@ fun WorkoutScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = SportPrimary,
                     contentColor = DarkBackground
-                )
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.PlayArrow,
@@ -367,6 +388,8 @@ fun WorkoutScreen(
                     letterSpacing = 1.sp
                 )
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     } else {
         // =========================================================================

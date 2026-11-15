@@ -1,9 +1,11 @@
 package com.stridebeat.app.presentation.navigation.components
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -18,7 +20,12 @@ fun BottomNavBar(navController: NavController) {
 
     NavigationBar(
         containerColor = DarkSurface,
-        tonalElevation = 8.dp
+        tonalElevation = 8.dp,
+        modifier = Modifier.border(
+            width = 0.5.dp,
+            color = DarkBorder,
+            shape = RectangleShape
+        )
     ) {
         Screen.bottomNavScreens.forEach { screen ->
             val isSelected = currentRoute == screen.route

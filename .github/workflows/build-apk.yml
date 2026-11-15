@@ -36,14 +36,14 @@ jobs:
       - name: Build Debug APK with Gradle
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Rename APK to StrideBeat-v0.0.2.apk
+      - name: Rename APK to StrideBeat-v0.0.3.apk
         run: |
           mkdir -p release-output
-          cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.0.2.apk
+          cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.0.3.apk
 
-      - name: Upload StrideBeat-v0.0.2 Artifact
+      - name: Upload StrideBeat-v0.0.3 Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StrideBeat-v0.0.2
-          path: release-output/StrideBeat-v0.0.2.apk
+          name: StrideBeat-v0.0.3
+          path: release-output/StrideBeat-v0.0.3.apk
           retention-days: 30

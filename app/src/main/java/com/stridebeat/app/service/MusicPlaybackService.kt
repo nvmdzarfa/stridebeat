@@ -95,7 +95,15 @@ class MusicPlaybackService : Service() {
                 mediaPlayer?.setDataSource(url)
                 mediaPlayer?.prepareAsync()
             } catch (e: Exception) {
-                e.printStackTrace()
+                try {
+                    mediaPlayer?.release()
+                    mediaPlayer = null
+                    initMediaPlayer()
+                    mediaPlayer?.setDataSource(url)
+                    mediaPlayer?.prepareAsync()
+                } catch (e2: Exception) {
+                    e2.printStackTrace()
+                }
             }
         } else {
             resumeAudio()
@@ -108,7 +116,10 @@ class MusicPlaybackService : Service() {
                 mediaPlayer?.start()
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            currentPlayingUrl?.let { url ->
+                currentPlayingUrl = null
+                playAudioUrl(url)
+            }
         }
     }
 

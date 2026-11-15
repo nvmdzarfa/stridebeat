@@ -53,12 +53,12 @@ class MusicRepositoryImpl @Inject constructor(
             Track(
                 id = "track_run_1",
                 isrc = "USUM71703861",
-                title = "Midnight City (Workout Edit)",
+                title = "Midnight City",
                 artist = "M83",
                 album = "Hurry Up, We're Dreaming",
                 durationMs = 244000L,
                 coverUrl = null,
-                audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+                audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/74/a2/d3/74a2d361-c6bb-9880-a8d1-d999833d2891/mzaf_15783493292556356203.plus.aac.p.m4a",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:1DoBx4h69vQ62jJvWbZ5j5",
                     MusicSource.YOUTUBE_MUSIC to "ytm_midnight_city"
@@ -67,12 +67,12 @@ class MusicRepositoryImpl @Inject constructor(
             Track(
                 id = "track_run_2",
                 isrc = "USUM71607172",
-                title = "Starboy (High Cadence)",
-                artist = "The Weeknd, Daft Punk",
+                title = "Starboy (feat. Daft Punk)",
+                artist = "The Weeknd",
                 album = "Starboy",
                 durationMs = 230000L,
                 coverUrl = null,
-                audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+                audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/11/71/d6/1171d6ad-3c96-e027-2af6-58028426588c/mzaf_15137631797407745471.plus.aac.p.m4a",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:7MXVkk9YM5FZ0wWACBRio2",
                     MusicSource.YOUTUBE_MUSIC to "ytm_starboy"
@@ -81,12 +81,12 @@ class MusicRepositoryImpl @Inject constructor(
             Track(
                 id = "track_run_3",
                 isrc = "FR9W11200123",
-                title = "Run Boy Run (Pace 170 BPM)",
+                title = "Run Boy Run",
                 artist = "Woodkid",
                 album = "The Golden Age",
                 durationMs = 213000L,
                 coverUrl = null,
-                audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+                audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/04/d2/94/04d294be-6311-baea-7217-99f0b4b7b3d4/mzaf_9016561572988079797.plus.aac.p.m4a",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:0Bo5cQoU6hLpZ5a3c2i1O4",
                     MusicSource.YOUTUBE_MUSIC to "ytm_run_boy_run"
@@ -95,12 +95,12 @@ class MusicRepositoryImpl @Inject constructor(
             Track(
                 id = "track_run_4",
                 isrc = "USUM70738491",
-                title = "Stronger (Cardio Remix)",
+                title = "Stronger",
                 artist = "Kanye West",
                 album = "Graduation",
                 durationMs = 311000L,
                 coverUrl = null,
-                audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+                audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/9e/cc/69/9ecc6918-a8dc-354f-909f-ccc20a0a7a33/mzaf_7863921970418240507.plus.aac.p.m4a",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:4fzsfWzRhPawzqhXZwn925",
                     MusicSource.YOUTUBE_MUSIC to "ytm_stronger"
@@ -109,12 +109,12 @@ class MusicRepositoryImpl @Inject constructor(
             Track(
                 id = "track_run_5",
                 isrc = "GBARL1300054",
-                title = "Pompeii (Sprint Rhythm)",
+                title = "Pompeii",
                 artist = "Bastille",
                 album = "Bad Blood",
                 durationMs = 214000L,
                 coverUrl = null,
-                audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
+                audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/b3/3d/fb/b33dfbb6-dac3-b97c-b239-18cf3688fdb7/mzaf_8177734646947686437.plus.aac.p.m4a",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:3LmpQiJ12G98cu624FNoTJ",
                     MusicSource.YOUTUBE_MUSIC to "ytm_pompeii"
@@ -122,16 +122,16 @@ class MusicRepositoryImpl @Inject constructor(
             ),
             Track(
                 id = "track_run_6",
-                isrc = "USAT21900123",
-                title = "Phonk Cyber Stride (160 BPM)",
-                artist = "StrideBeat Beats",
-                album = "Neon Cardio",
+                isrc = "SEUM71101032",
+                title = "Levels",
+                artist = "Avicii",
+                album = "Levels - Single",
                 durationMs = 195000L,
                 coverUrl = null,
-                audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3",
+                audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/66/dc/bd/66dcbd68-b557-bdfd-f2c2-a05491758783/mzaf_13654489760720011690.plus.aac.p.m4a",
                 platformIds = mapOf(
-                    MusicSource.SPOTIFY to "spotify:track:phonk_stride",
-                    MusicSource.YOUTUBE_MUSIC to "ytm_phonk_stride"
+                    MusicSource.SPOTIFY to "spotify:track:levels_avicii",
+                    MusicSource.YOUTUBE_MUSIC to "ytm_levels_avicii"
                 )
             )
         )
@@ -140,12 +140,12 @@ class MusicRepositoryImpl @Inject constructor(
             Track(
                 id = "track_cardio_1",
                 isrc = "GBAYE0601477",
-                title = "Can't Stop (Rock Rhythm)",
+                title = "Can't Stop",
                 artist = "Red Hot Chili Peppers",
                 album = "By the Way",
                 durationMs = 269000L,
                 coverUrl = null,
-                audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
+                audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/b4/37/77/b43777c1-aa65-2d44-6130-7560392981af/mzaf_10231906724003007738.plus.aac.p.m4a",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:3ZOEytgrvLwQaqXreDs2Jx",
                     MusicSource.YOUTUBE_MUSIC to "ytm_cant_stop"
@@ -154,12 +154,12 @@ class MusicRepositoryImpl @Inject constructor(
             Track(
                 id = "track_cardio_2",
                 isrc = "GBUM71029605",
-                title = "Lights (Bass Pulse)",
+                title = "Lights",
                 artist = "Ellie Goulding",
                 album = "Bright Lights",
                 durationMs = 244000L,
                 coverUrl = null,
-                audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3",
+                audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/eb/ca/b8/ebcab8fd-433b-93a6-4fe5-a9cb434d97a9/mzaf_13395952697862141833.plus.aac.p.m4a",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:11ozH05lM8vT4vB2B1wN3e",
                     MusicSource.YOUTUBE_MUSIC to "ytm_lights"
@@ -167,16 +167,16 @@ class MusicRepositoryImpl @Inject constructor(
             ),
             Track(
                 id = "track_cardio_3",
-                isrc = "USWB11400234",
-                title = "Synthwave Marathoner",
-                artist = "Pulse Runner",
-                album = "Retro Stride",
-                durationMs = 228000L,
+                isrc = "FRZ030000001",
+                title = "One More Time",
+                artist = "Daft Punk",
+                album = "Discovery",
+                durationMs = 320000L,
                 coverUrl = null,
-                audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3",
+                audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/5d/93/d8/5d93d83f-ad1e-da4d-1d79-9937bdff24ec/mzaf_14396932211949300852.plus.aac.p.m4a",
                 platformIds = mapOf(
-                    MusicSource.SPOTIFY to "spotify:track:synthwave_marathon",
-                    MusicSource.YOUTUBE_MUSIC to "ytm_synthwave_marathon"
+                    MusicSource.SPOTIFY to "spotify:track:0DiWol3AO6WpXZgp0goxAV",
+                    MusicSource.YOUTUBE_MUSIC to "ytm_one_more_time"
                 )
             )
         )
@@ -338,6 +338,10 @@ class MusicRepositoryImpl @Inject constructor(
         if (currentList.isEmpty() || currentList.last().trackId != track.id) {
             _playedTracksInSession.value = currentList + played
         }
+    }
+
+    override suspend fun searchOnlineTracks(query: String): List<Track> {
+        return com.stridebeat.app.data.remote.music.OnlineMusicSearchEngine.searchTracks(query)
     }
 
     override suspend fun clearSessionTracks() {
