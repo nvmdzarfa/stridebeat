@@ -164,7 +164,13 @@ class MusicRepositoryImpl @Inject constructor(
         )
 
         _availablePlaylists.value = playlists
-        selectPlaylist(playlists.first())
+        val defaultPlaylist = playlists.first()
+        _activePlaylist.value = defaultPlaylist
+        if (defaultPlaylist.tracks.isNotEmpty()) {
+            currentTrackIndex = 0
+            _currentTrack.value = defaultPlaylist.tracks.first()
+            _playbackPositionMs.value = 0L
+        }
     }
 
     override suspend fun play() {
