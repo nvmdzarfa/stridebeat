@@ -53,11 +53,12 @@ class MusicRepositoryImpl @Inject constructor(
             Track(
                 id = "track_run_1",
                 isrc = "USUM71703861",
-                title = "Midnight City",
+                title = "Midnight City (Workout Edit)",
                 artist = "M83",
                 album = "Hurry Up, We're Dreaming",
                 durationMs = 244000L,
                 coverUrl = null,
+                audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:1DoBx4h69vQ62jJvWbZ5j5",
                     MusicSource.YOUTUBE_MUSIC to "ytm_midnight_city"
@@ -66,11 +67,12 @@ class MusicRepositoryImpl @Inject constructor(
             Track(
                 id = "track_run_2",
                 isrc = "USUM71607172",
-                title = "Starboy",
+                title = "Starboy (High Cadence)",
                 artist = "The Weeknd, Daft Punk",
                 album = "Starboy",
                 durationMs = 230000L,
                 coverUrl = null,
+                audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:7MXVkk9YM5FZ0wWACBRio2",
                     MusicSource.YOUTUBE_MUSIC to "ytm_starboy"
@@ -79,11 +81,12 @@ class MusicRepositoryImpl @Inject constructor(
             Track(
                 id = "track_run_3",
                 isrc = "FR9W11200123",
-                title = "Run Boy Run",
+                title = "Run Boy Run (Pace 170 BPM)",
                 artist = "Woodkid",
                 album = "The Golden Age",
                 durationMs = 213000L,
                 coverUrl = null,
+                audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:0Bo5cQoU6hLpZ5a3c2i1O4",
                     MusicSource.YOUTUBE_MUSIC to "ytm_run_boy_run"
@@ -92,11 +95,12 @@ class MusicRepositoryImpl @Inject constructor(
             Track(
                 id = "track_run_4",
                 isrc = "USUM70738491",
-                title = "Stronger",
+                title = "Stronger (Cardio Remix)",
                 artist = "Kanye West",
                 album = "Graduation",
                 durationMs = 311000L,
                 coverUrl = null,
+                audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:4fzsfWzRhPawzqhXZwn925",
                     MusicSource.YOUTUBE_MUSIC to "ytm_stronger"
@@ -105,14 +109,29 @@ class MusicRepositoryImpl @Inject constructor(
             Track(
                 id = "track_run_5",
                 isrc = "GBARL1300054",
-                title = "Pompeii",
+                title = "Pompeii (Sprint Rhythm)",
                 artist = "Bastille",
                 album = "Bad Blood",
                 durationMs = 214000L,
                 coverUrl = null,
+                audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:3LmpQiJ12G98cu624FNoTJ",
                     MusicSource.YOUTUBE_MUSIC to "ytm_pompeii"
+                )
+            ),
+            Track(
+                id = "track_run_6",
+                isrc = "USAT21900123",
+                title = "Phonk Cyber Stride (160 BPM)",
+                artist = "StrideBeat Beats",
+                album = "Neon Cardio",
+                durationMs = 195000L,
+                coverUrl = null,
+                audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3",
+                platformIds = mapOf(
+                    MusicSource.SPOTIFY to "spotify:track:phonk_stride",
+                    MusicSource.YOUTUBE_MUSIC to "ytm_phonk_stride"
                 )
             )
         )
@@ -121,11 +140,12 @@ class MusicRepositoryImpl @Inject constructor(
             Track(
                 id = "track_cardio_1",
                 isrc = "GBAYE0601477",
-                title = "Can't Stop",
+                title = "Can't Stop (Rock Rhythm)",
                 artist = "Red Hot Chili Peppers",
                 album = "By the Way",
                 durationMs = 269000L,
                 coverUrl = null,
+                audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:3ZOEytgrvLwQaqXreDs2Jx",
                     MusicSource.YOUTUBE_MUSIC to "ytm_cant_stop"
@@ -134,14 +154,29 @@ class MusicRepositoryImpl @Inject constructor(
             Track(
                 id = "track_cardio_2",
                 isrc = "GBUM71029605",
-                title = "Lights",
+                title = "Lights (Bass Pulse)",
                 artist = "Ellie Goulding",
                 album = "Bright Lights",
                 durationMs = 244000L,
                 coverUrl = null,
+                audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:11ozH05lM8vT4vB2B1wN3e",
                     MusicSource.YOUTUBE_MUSIC to "ytm_lights"
+                )
+            ),
+            Track(
+                id = "track_cardio_3",
+                isrc = "USWB11400234",
+                title = "Synthwave Marathoner",
+                artist = "Pulse Runner",
+                album = "Retro Stride",
+                durationMs = 228000L,
+                coverUrl = null,
+                audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3",
+                platformIds = mapOf(
+                    MusicSource.SPOTIFY to "spotify:track:synthwave_marathon",
+                    MusicSource.YOUTUBE_MUSIC to "ytm_synthwave_marathon"
                 )
             )
         )
@@ -156,7 +191,7 @@ class MusicRepositoryImpl @Inject constructor(
             ),
             WorkoutPlaylist(
                 id = "pl_cardio_2",
-                name = "Power Cardio Beats",
+                name = "Power Cardio Beats & Phonk",
                 description = "Dentuman bass bertenaga untuk latihan interval dan tanjakan",
                 source = MusicSource.YOUTUBE_MUSIC,
                 tracks = cardioTracks

@@ -12,5 +12,6 @@ data class Track(
     val album: String? = null,
     val durationMs: Long,
     val coverUrl: String? = null,
+    val audioUrl: String? = null,
     val platformIds: Map<MusicSource, String> = emptyMap()
 )

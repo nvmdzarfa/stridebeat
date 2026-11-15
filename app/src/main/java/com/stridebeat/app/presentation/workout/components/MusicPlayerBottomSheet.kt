@@ -11,7 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,8 +40,27 @@ fun MusicPlayerBottomSheet(
     onSkipPrevious: () -> Unit,
     onSwitchSource: (MusicSource) -> Unit,
     onSelectPlaylist: (WorkoutPlaylist) -> Unit,
+    onPlayTrack: (Track) -> Unit,
     onDismiss: () -> Unit
 ) {
+    var searchQuery by remember { mutableStateOf("") }
+
+    val allTracks = remember(availablePlaylists) {
+        availablePlaylists.flatMap { it.tracks }.distinctBy { it.id }
+    }
+
+    val displayedTracks = remember(searchQuery, activePlaylist, allTracks) {
+        if (searchQuery.isBlank()) {
+            activePlaylist?.tracks ?: allTracks
+        } else {
+            allTracks.filter {
+                it.title.contains(searchQuery, ignoreCase = true) ||
+                        it.artist.contains(searchQuery, ignoreCase = true) ||
+                        (it.album?.contains(searchQuery, ignoreCase = true) == true)
+            }
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = DarkSurface,
@@ -52,9 +71,9 @@ fun MusicPlayerBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Header: Source Switcher Tabs (PRD §1.1 & §7.5)
+            // Header: Source Switcher Tabs
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
@@ -102,7 +121,7 @@ fun MusicPlayerBottomSheet(
                             }
                         }
 
-                        // YouTube Music Tab (Beta)
+                        // YouTube Music Tab
                         Surface(
                             modifier = Modifier
                                 .weight(1f)
@@ -117,7 +136,7 @@ fun MusicPlayerBottomSheet(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.MusicNote,
+                                    imageVector = Icons.Default.PlayCircle,
                                     contentDescription = null,
                                     tint = if (activeSource == MusicSource.YOUTUBE_MUSIC) YouTubeBrand else TextMutedDark,
                                     modifier = Modifier.size(18.dp)
@@ -132,18 +151,57 @@ fun MusicPlayerBottomSheet(
                             }
                         }
                     }
-
-                    // Notice: Seamless Switch
-                    Text(
-                        text = "✓ Ganti sumber musik tidak akan memutus atau mereset GPS tracking lari kamu.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SportPrimary,
-                        fontSize = 11.sp
-                    )
                 }
             }
 
-            // Current Track Big Card
+            // Search Bar untuk mencari lagu langsung di aplikasi
+            item {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = DarkSurfaceElevated,
+                        unfocusedContainerColor = DarkSurfaceElevated,
+                        focusedBorderColor = SportPrimary,
+                        unfocusedBorderColor = DarkBorder,
+                        focusedTextColor = TextPrimaryDark,
+                        unfocusedTextColor = TextPrimaryDark,
+                        cursorColor = SportPrimary
+                    ),
+                    placeholder = {
+                        Text(
+                            text = "Cari judul, artis, beat BPM (EDM, Phonk, Rock)...",
+                            fontSize = 12.sp,
+                            color = TextMutedDark
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = SportPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotBlank()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Hapus",
+                                    tint = TextMutedDark,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    },
+                    singleLine = true
+                )
+            }
+
+            // Now Playing Card (Live Player di dalam aplikasi)
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -151,50 +209,51 @@ fun MusicPlayerBottomSheet(
                     colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated),
                     border = androidx.compose.foundation.BorderStroke(
                         1.dp,
-                        if (activeSource == MusicSource.SPOTIFY) SpotifyBrand.copy(alpha = 0.4f) else YouTubeBrand.copy(alpha = 0.4f)
+                        if (activeSource == MusicSource.SPOTIFY) SpotifyBrand.copy(alpha = 0.5f) else YouTubeBrand.copy(alpha = 0.5f)
                     )
                 ) {
                     Column(
-                        modifier = Modifier.padding(18.dp),
+                        modifier = Modifier.padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Stylized Artwork
+                        // Album Art Cover Badge
                         Box(
                             modifier = Modifier
-                                .size(90.dp)
-                                .clip(RoundedCornerShape(16.dp))
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(14.dp))
                                 .background(
-                                    if (activeSource == MusicSource.SPOTIFY) SpotifyBrand.copy(alpha = 0.15f)
-                                    else YouTubeBrand.copy(alpha = 0.15f)
+                                    if (activeSource == MusicSource.SPOTIFY) SpotifyBrand.copy(alpha = 0.2f) else YouTubeBrand.copy(alpha = 0.2f)
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.GraphicEq,
+                                imageVector = if (isPlaying) Icons.Default.GraphicEq else Icons.Default.MusicNote,
                                 contentDescription = null,
                                 tint = if (activeSource == MusicSource.SPOTIFY) SpotifyBrand else YouTubeBrand,
-                                modifier = Modifier.size(48.dp)
+                                modifier = Modifier.size(36.dp)
                             )
                         }
 
+                        // Info Judul & Status Putar
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = currentTrack?.title ?: "Tidak ada lagu",
-                                style = MaterialTheme.typography.headlineSmall,
+                                text = currentTrack?.title ?: "Pilih Lagu Workout",
+                                style = MaterialTheme.typography.titleMedium,
                                 color = TextPrimaryDark,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center
                             )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = currentTrack?.artist ?: "-",
-                                style = MaterialTheme.typography.bodyMedium,
+                                text = "${currentTrack?.artist ?: "StrideBeat Audio"} • Putar Langsung di HP",
+                                style = MaterialTheme.typography.bodySmall,
                                 color = TextSecondaryDark,
                                 textAlign = TextAlign.Center
                             )
                         }
 
-                        // Playback Controls (Play/Pause, Next, Prev)
+                        // Tombol Playback (Prev, Play/Pause, Next)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(20.dp)
@@ -213,7 +272,7 @@ fun MusicPlayerBottomSheet(
 
                             FilledIconButton(
                                 onClick = onTogglePlayPause,
-                                modifier = Modifier.size(58.dp),
+                                modifier = Modifier.size(56.dp),
                                 colors = IconButtonDefaults.filledIconButtonColors(
                                     containerColor = if (activeSource == MusicSource.SPOTIFY) SpotifyBrand else YouTubeBrand
                                 )
@@ -242,105 +301,134 @@ fun MusicPlayerBottomSheet(
                 }
             }
 
-            // Playlist Selection Section
+            // Playlist Selection Pills
             item {
                 Text(
-                    text = "PILIH PLAYLIST WORKOUT",
+                    text = "PLAYLIST OLAHRAGA",
                     style = MaterialTheme.typography.labelSmall,
                     color = TextMutedDark,
                     fontWeight = FontWeight.Bold
                 )
-            }
-
-            items(availablePlaylists) { playlist ->
-                val isSelected = activePlaylist?.id == playlist.id
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onSelectPlaylist(playlist) },
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (isSelected) DarkSurfaceElevated else DarkSurface,
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        if (isSelected) SportPrimary else DarkBorder
-                    )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
+                    availablePlaylists.forEach { pl ->
+                        val isSel = pl.id == activePlaylist?.id
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { onSelectPlaylist(pl) },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSel) SportPrimary.copy(alpha = 0.2f) else DarkSurfaceElevated,
+                            border = if (isSel) androidx.compose.foundation.BorderStroke(1.dp, SportPrimary) else null
+                        ) {
                             Text(
-                                text = playlist.name,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = if (isSelected) SportPrimary else TextPrimaryDark,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "${playlist.tracks.size} lagu • ${playlist.description}",
+                                text = pl.name.take(24) + if (pl.name.length > 24) "..." else "",
+                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 10.dp),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = TextSecondaryDark
-                            )
-                        }
-
-                        if (isSelected) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = "Aktif",
-                                tint = SportPrimary,
-                                modifier = Modifier.size(20.dp)
+                                color = if (isSel) SportPrimary else TextSecondaryDark,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
                             )
                         }
                     }
                 }
             }
 
-            // Section: History Lagu yang Terputar Sesi Ini
+            // Daftar Lagu (Bisa langsung di-tap untuk putar audio langsung di aplikasi)
             item {
-                Text(
-                    text = "LAGU TERCATAT SESI INI (${playedTracks.size})",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextMutedDark,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (searchQuery.isBlank()) "DAFTAR LAGU DALAM PLAYLIST" else "HASIL PENCARIAN LAGU (${displayedTracks.size})",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextMutedDark,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Tap untuk putar",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SportPrimary,
+                        fontSize = 11.sp
+                    )
+                }
             }
 
-            items(playedTracks) { pt ->
-                Row(
+            items(displayedTracks) { track ->
+                val isCurrent = track.id == currentTrack?.id
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(DarkSurfaceElevated)
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .clickable { onPlayTrack(track) },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isCurrent) DarkSurfaceElevated else DarkSurface
+                    ),
+                    border = if (isCurrent) androidx.compose.foundation.BorderStroke(1.dp, SportPrimary.copy(alpha = 0.6f)) else null
                 ) {
-                    Column {
-                        Text(
-                            text = pt.title,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = TextPrimaryDark,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = pt.artist,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondaryDark
-                        )
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = if (pt.source == MusicSource.SPOTIFY) SpotifyBrand.copy(alpha = 0.2f) else YouTubeBrand.copy(alpha = 0.2f)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = if (pt.source == MusicSource.SPOTIFY) "Spotify" else "YouTube Music",
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (pt.source == MusicSource.SPOTIFY) SpotifyBrand else YouTubeBrand,
-                            fontSize = 10.sp
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (isCurrent && isPlaying) SportPrimary else DarkSurfaceElevated
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (isCurrent && isPlaying) Icons.Default.GraphicEq else Icons.Default.PlayArrow,
+                                    contentDescription = null,
+                                    tint = if (isCurrent && isPlaying) DarkBackground else TextPrimaryDark,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            Column {
+                                Text(
+                                    text = track.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (isCurrent) SportPrimary else TextPrimaryDark,
+                                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.SemiBold,
+                                    maxLines = 1
+                                )
+                                Text(
+                                    text = "${track.artist} • ${track.album ?: "Workout"}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextSecondaryDark,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (activeSource == MusicSource.SPOTIFY) SpotifyBrand.copy(alpha = 0.15f) else YouTubeBrand.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                text = if (activeSource == MusicSource.SPOTIFY) "Spotify" else "YouTube",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (activeSource == MusicSource.SPOTIFY) SpotifyBrand else YouTubeBrand,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            )
+                        }
                     }
                 }
             }
