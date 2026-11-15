@@ -1,0 +1,20 @@
+## StrideBeat Local Secrets Configuration Template
+## Copy this file to 'local.properties' in the project root and fill in your developer keys.
+## PERHATIAN: JANGAN PERNAH COMMIT FILE 'local.properties' KE GIT/VERSION CONTROL!
+
+# Android SDK Path (Biasanya diatur otomatis oleh Android Studio)
+# sdk.dir=C:\\Users\\<YourUsername>\\AppData\\Local\\Android\\Sdk
+
+# Strava API (Dapatkan di https://www.strava.com/settings/api)
+STRAVA_CLIENT_ID=
+STRAVA_CLIENT_SECRET=
+
+# Spotify Developer API (Dapatkan di https://developer.spotify.com/dashboard)
+SPOTIFY_CLIENT_ID=
+SPOTIFY_REDIRECT_URI=stridebeat://spotify-callback
+
+# YouTube Music OAuth (Google Cloud Console OAuth Client ID jika diaktifkan)
+YOUTUBE_MUSIC_OAUTH_CLIENT_ID=
+
+# Google Maps API Key (Opsional jika memakai Google Maps di M2)
+MAPS_API_KEY=

@@ -1,0 +1,49 @@
+appId: com.stridebeat.app
+---
+# Flow Pengujian Otomatis Maestro untuk Milestone M4 — Recap, Room Database & GPX Export
+# Memverifikasi alur: Selesaikan Workout -> Recap Screen (Rute + Lagu) -> Export GPX -> Navigasi Riwayat -> Room DB CRUD -> Konfirmasi Hapus
+
+- launchApp:
+    clearState: true
+
+# 1. Mulai & Selesaikan Sesi Latihan
+- assertVisible: "MULAI OLAHRAGA"
+- tapOn: "MULAI OLAHRAGA"
+
+- assertVisible: "LARI OUTDOOR"
+- tapOn: "Selesai"
+- assertVisible: "Selesaikan Sesi?"
+- tapOn: "Ya, Selesai"
+
+# 2. Verifikasi Layar Recap (M4)
+- assertVisible: "Recap Olahraga"
+- assertVisible: "JARAK"
+- assertVisible: "WAKTU TOTAL"
+- assertVisible: "PACE RATA-RATA"
+- assertVisible: "KALORI (ESTIMASI)"
+- assertVisible: "Lagu yang Menemanimu"
+
+# 3. Verifikasi Tombol Export GPX & Bagikan
+- assertVisible: "Export GPX"
+- assertVisible: "Bagikan"
+
+# 4. Simpan & Selesaikan Recap
+- tapOn: "Selesai & Simpan Sesi"
+
+# 5. Navigasi ke Tab Riwayat (Room Database)
+- tapOn: "Riwayat"
+- assertVisible: "Riwayat Olahraga"
+- assertVisible: "Tersimpan offline di database lokal Room"
+
+# 6. Verifikasi Kartu Sesi Tersimpan
+- assertVisible: "Lari Outdoor"
+
+# 7. Uji Dialog Konfirmasi Hapus Sesi (PRD §7.7)
+- tapOn: "Hapus sesi"
+- assertVisible: "Hapus Sesi Ini?"
+- assertVisible: "Batal"
+- tapOn: "Batal"
+
+# 8. Buka Detail Sesi dari Riwayat
+- tapOn: "Lari Outdoor"
+- assertVisible: "Recap Olahraga"

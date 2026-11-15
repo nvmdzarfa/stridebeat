@@ -1,0 +1,44 @@
+appId: com.stridebeat.app
+---
+# Flow Pengujian Otomatis Maestro untuk Milestone M1 — Autentikasi Akun Terhubung
+# Menjalankan verifikasi US-01: Akun terhubung, status belum terhubung, logout per akun independen
+
+- launchApp:
+    clearState: true
+
+# 1. Navigasi ke Pengaturan
+- tapOn: "Pengaturan"
+- assertVisible: "AKUN TERHUBUNG (M1)"
+
+# 2. Verifikasi Kartu Strava
+- assertVisible: "Strava"
+- assertVisible: "OAuth 2.0 PKCE"
+
+# 3. Verifikasi Kartu Spotify
+- assertVisible: "Spotify"
+- assertVisible: "Web API & SDK"
+
+# 4. Verifikasi Kartu YouTube Music (Beta)
+- assertVisible: "YouTube Music"
+- assertVisible: "Beta / Tidak Resmi"
+
+# 5. Uji Dialog & Interaksi Koneksi
+- tapOn:
+    text: "Hubungkan"
+    index: 0
+- assertVisible: "Mengerti"
+- tapOn: "Mengerti"
+
+# 6. Uji YouTube Music Session Modal
+- tapOn:
+    text: "Hubungkan"
+    index: 2
+- assertVisible: "Hubungkan YouTube Music"
+- inputText: "Geiza Test"
+- tapOn: "Simpan Sesi"
+- assertVisible: "Sesi aktif: Geiza Test"
+- assertVisible: "Putuskan"
+
+# 7. Uji Logout Per Akun Independen (Logout YTM tidak me-logout akun lain)
+- tapOn: "Putuskan"
+- assertVisible: "Belum terhubung"

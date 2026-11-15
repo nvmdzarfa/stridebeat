@@ -1,0 +1,10 @@
+<resources>
+    <color name="primary">#00E676</color>
+    <color name="primary_dark">#00B359</color>
+    <color name="accent_energy">#CCFF00</color>
+    <color name="spotify_green">#1DB954</color>
+    <color name="youtube_red">#FF3B30</color>
+    <color name="background_dark">#121214</color>
+    <color name="surface_dark">#1C1C1E</color>
+    <color name="white">#FFFFFF</color>
+</resources>

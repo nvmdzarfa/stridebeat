@@ -1,0 +1,40 @@
+appId: com.stridebeat.app
+---
+# Flow Pengujian Otomatis Maestro untuk Milestone M2 — GPS Tracking & Peta Live
+# Memverifikasi alur: Mulai Workout -> Peta Live GPS -> Timer & Jarak Realtime -> Jeda/Lanjut -> Selesai -> Recap
+
+- launchApp:
+    clearState: true
+
+# 1. Mulai Latihan dari Beranda
+- assertVisible: "MULAI OLAHRAGA"
+- tapOn: "MULAI OLAHRAGA"
+
+# 2. Verifikasi Layar Workout & Komponen M2
+- assertVisible: "LARI OUTDOOR (M2)"
+- assertVisible: "GPS Aktif"
+- assertVisible: "WAKTU BERJALAN"
+- assertVisible: "Jarak"
+- assertVisible: "Pace"
+- assertVisible: "Kalori (estimasi)"
+
+# 3. Interaksi Pause (Jeda) & Resume (Lanjut)
+- tapOn: "Jeda"
+- assertVisible: "DIJEDA"
+- tapOn: "Lanjut"
+- assertVisible: "WAKTU BERJALAN"
+
+# 4. Selesaikan Sesi
+- tapOn: "Selesai"
+- assertVisible: "Selesaikan Sesi?"
+- tapOn: "Ya, Selesai"
+
+# 5. Verifikasi Layar Recap dengan Peta Rute Canvas
+- assertVisible: "Recap Olahraga"
+- assertVisible: "JARAK"
+- assertVisible: "PACE RATA-RATA"
+- assertVisible: "Lagu yang Menemanimu"
+- tapOn: "Selesai & Simpan Sesi"
+
+# 6. Kembali ke Beranda
+- assertVisible: "Halo, Geiza!"

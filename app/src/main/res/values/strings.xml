@@ -1,0 +1,46 @@
+<resources>
+    <!-- Nama kerja sementara sesuai PRD (bisa diganti tanpa mengubah logic) -->
+    <string name="app_name">StrideBeat</string>
+    <string name="app_tagline">Strava + Musik dalam Satu Aplikasi</string>
+
+    <!-- Navigasi -->
+    <string name="nav_home">Beranda</string>
+    <string name="nav_workout">Olahraga</string>
+    <string name="nav_history">Riwayat</string>
+    <string name="nav_settings">Pengaturan</string>
+    <string name="nav_recap">Recap</string>
+
+    <!-- Beranda -->
+    <string name="home_greeting">Halo, Atlet!</string>
+    <string name="home_sample_badge">CONTOH</string>
+    <string name="home_weekly_title">Statistik Minggu Ini</string>
+    <string name="home_start_workout">Mulai Olahraga</string>
+    <string name="home_last_session">Sesi Terakhir</string>
+
+    <!-- Workout -->
+    <string name="workout_title">Sesi Olahraga</string>
+    <string name="workout_pause">Jeda</string>
+    <string name="workout_resume">Lanjut</string>
+    <string name="workout_finish">Selesai</string>
+    <string name="workout_finish_confirm_title">Selesaikan Sesi?</string>
+    <string name="workout_finish_confirm_desc">Data sesi ini akan dirangkum ke layar Recap dan disimpan ke riwayat lokal.</string>
+    <string name="workout_cancel">Batal</string>
+    <string name="workout_confirm">Ya, Selesai</string>
+
+    <!-- Recap -->
+    <string name="recap_title">Ringkasan Olahraga</string>
+    <string name="recap_save">Simpan Sesi</string>
+    <string name="recap_upload_strava">Upload ke Strava</string>
+    <string name="recap_share">Bagikan</string>
+    <string name="recap_tracks_title">Lagu yang Diputar</string>
+
+    <!-- Pengaturan -->
+    <string name="settings_title">Pengaturan</string>
+    <string name="settings_connected_accounts">Akun Terhubung</string>
+    <string name="account_strava">Strava</string>
+    <string name="account_spotify">Spotify</string>
+    <string name="account_youtube_music">YouTube Music</string>
+    <string name="status_connected">Terhubung</string>
+    <string name="status_disconnected">Belum terhubung</string>
+    <string name="status_beta">Beta / Tidak Resmi</string>
+</resources>
