@@ -25,6 +25,18 @@ class MusicViewModel @Inject constructor(
     val activePlaylist: StateFlow<WorkoutPlaylist?> = musicRepository.activePlaylist
     val playedTracksInSession: StateFlow<List<PlayedTrack>> = musicRepository.playedTracksInSession
 
+    fun play() {
+        viewModelScope.launch {
+            musicRepository.play()
+        }
+    }
+
+    fun pause() {
+        viewModelScope.launch {
+            musicRepository.pause()
+        }
+    }
+
     fun togglePlayPause() {
         viewModelScope.launch {
             musicRepository.togglePlayPause()
