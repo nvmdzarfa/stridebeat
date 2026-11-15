@@ -93,7 +93,7 @@ fun MusicPlayerBottomSheet(
                     ),
                     placeholder = {
                         Text(
-                            text = "Cari lagu asli: The Weeknd, Kanye, Phonk...",
+                            text = "Cari lagu YouTube full: The Weeknd, Kanye, Phonk...",
                             fontSize = 13.sp,
                             color = TextMutedDark
                         )
@@ -231,7 +231,7 @@ fun MusicPlayerBottomSheet(
                                             maxLines = 1
                                         )
                                         Text(
-                                            text = "${track.artist} • ${track.album ?: "Audio Asli"}",
+                                            text = "${track.artist} • Lagu Penuh (Full Song)",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = TextSecondaryDark,
                                             maxLines = 1
@@ -244,7 +244,7 @@ fun MusicPlayerBottomSheet(
                                     color = SportPrimary.copy(alpha = 0.15f)
                                 ) {
                                     Text(
-                                        text = "Putar",
+                                        text = "Putar Full",
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = SportPrimary,

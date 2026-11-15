@@ -22,20 +22,28 @@ import com.stridebeat.app.domain.model.MusicSource
 import com.stridebeat.app.domain.model.Track
 
 /**
- * Service pemutar musik latar belakang dengan MediaSessionCompat & MediaPlayer.
- * Memutar audio musik ritme workout secara live langsung di dalam aplikasi,
- * dan terintegrasi dengan media controller sistem Android & lockscreen.
+ * Service pemutar musik latar belakang dengan dukungan ganda:
+ * 1. YouTubeBackgroundPlayer (Memutar lagu YouTube secara FULL 100% dari awal sampai habis)
+ * 2. Native MediaPlayer (Memutar file audio stream langsung)
+ * Terintegrasi penuh dengan MediaSessionCompat & lockscreen controller Android.
  */
 class MusicPlaybackService : Service() {
 
     private lateinit var mediaSession: MediaSessionCompat
     private var mediaPlayer: MediaPlayer? = null
+    private var youTubePlayer: YouTubeBackgroundPlayer? = null
+
     private var currentPlayingUrl: String? = null
+    private var isUsingYouTube = false
+    private var currentTitle: String = "StrideBeat Music"
+    private var currentArtist: String = "Olahraga & Ritme"
+    private var currentSource: String = "YOUTUBE_MUSIC"
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
         initMediaPlayer()
+        initYouTubePlayer()
 
         mediaSession = MediaSessionCompat(this, "StrideBeatMediaSession").apply {
             setFlags(
@@ -46,18 +54,50 @@ class MusicPlaybackService : Service() {
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() {
                     resumeAudio()
+                    updateMediaSession(currentTitle, currentArtist, true)
                 }
 
                 override fun onPause() {
                     pauseAudio()
+                    updateMediaSession(currentTitle, currentArtist, false)
                 }
 
                 override fun onStop() {
                     stopAudio()
                 }
+
+                override fun onSkipToNext() {
+                    onSkipNextListener?.invoke()
+                }
+
+                override fun onSkipToPrevious() {
+                    onSkipPreviousListener?.invoke()
+                }
             })
 
             isActive = true
+        }
+    }
+
+    private fun initYouTubePlayer() {
+        if (youTubePlayer == null) {
+            youTubePlayer = YouTubeBackgroundPlayer(
+                context = this,
+                onStateChanged = { isPlaying ->
+                    updateMediaSession(currentTitle, currentArtist, isPlaying)
+                    val notification = buildMediaNotification(currentTitle, currentArtist, isPlaying, currentSource)
+                    val manager = getSystemService(NotificationManager::class.java)
+                    manager?.notify(NOTIFICATION_ID, notification)
+                },
+                onTrackEnded = {
+                    // Otomatis lompat ke lagu berikutnya agar ritme olahraga terus jalan
+                    onSkipNextListener?.invoke()
+                },
+                onError = {
+                    // Jika error pada video tertentu, lompat ke lagu berikutnya
+                    onSkipNextListener?.invoke()
+                }
+            )
         }
     }
 
@@ -73,57 +113,86 @@ class MusicPlaybackService : Service() {
                 setOnPreparedListener { mp ->
                     mp.start()
                 }
-                setOnCompletionListener { mp ->
-                    // Putar ulang lagu secara otomatis untuk menjaga ritme olahraga
-                    mp.start()
+                setOnCompletionListener {
+                    onSkipNextListener?.invoke()
                 }
                 setOnErrorListener { _, _, _ ->
-                    true // Cegah crash jika terjadi kendala jaringan stream
+                    true
                 }
             }
         }
     }
 
-    private fun playAudioUrl(url: String?) {
+    private fun playAudio(url: String?) {
         if (url.isNullOrBlank()) return
-        initMediaPlayer()
 
-        if (currentPlayingUrl != url) {
-            currentPlayingUrl = url
+        if (url.startsWith("youtube:")) {
+            // Mode YouTube Full Song
+            val videoId = url.removePrefix("youtube:")
+            isUsingYouTube = true
+
+            // Matikan MediaPlayer jika sedang berbunyi
             try {
-                mediaPlayer?.reset()
-                mediaPlayer?.setDataSource(url)
-                mediaPlayer?.prepareAsync()
+                if (mediaPlayer?.isPlaying == true) {
+                    mediaPlayer?.pause()
+                }
             } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            initYouTubePlayer()
+            youTubePlayer?.play(videoId)
+            currentPlayingUrl = url
+        } else {
+            // Mode Stream Audio Biasa (MediaPlayer)
+            isUsingYouTube = false
+            youTubePlayer?.pause()
+
+            initMediaPlayer()
+            if (currentPlayingUrl != url) {
+                currentPlayingUrl = url
                 try {
-                    mediaPlayer?.release()
-                    mediaPlayer = null
-                    initMediaPlayer()
+                    mediaPlayer?.reset()
                     mediaPlayer?.setDataSource(url)
                     mediaPlayer?.prepareAsync()
-                } catch (e2: Exception) {
-                    e2.printStackTrace()
+                } catch (e: Exception) {
+                    try {
+                        mediaPlayer?.release()
+                        mediaPlayer = null
+                        initMediaPlayer()
+                        mediaPlayer?.setDataSource(url)
+                        mediaPlayer?.prepareAsync()
+                    } catch (e2: Exception) {
+                        e2.printStackTrace()
+                    }
                 }
+            } else {
+                resumeAudio()
             }
-        } else {
-            resumeAudio()
         }
     }
 
     private fun resumeAudio() {
-        try {
-            if (mediaPlayer != null && !mediaPlayer!!.isPlaying) {
-                mediaPlayer?.start()
-            }
-        } catch (e: Exception) {
-            currentPlayingUrl?.let { url ->
-                currentPlayingUrl = null
-                playAudioUrl(url)
+        if (isUsingYouTube) {
+            youTubePlayer?.resume()
+        } else {
+            try {
+                if (mediaPlayer != null && !mediaPlayer!!.isPlaying) {
+                    mediaPlayer?.start()
+                }
+            } catch (e: Exception) {
+                currentPlayingUrl?.let { url ->
+                    currentPlayingUrl = null
+                    playAudio(url)
+                }
             }
         }
     }
 
     private fun pauseAudio() {
+        if (isUsingYouTube) {
+            youTubePlayer?.pause()
+        }
         try {
             if (mediaPlayer != null && mediaPlayer!!.isPlaying) {
                 mediaPlayer?.pause()
@@ -134,6 +203,9 @@ class MusicPlaybackService : Service() {
     }
 
     private fun stopAudio() {
+        if (isUsingYouTube) {
+            youTubePlayer?.pause()
+        }
         try {
             mediaPlayer?.stop()
             mediaPlayer?.reset()
@@ -144,15 +216,15 @@ class MusicPlaybackService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val title = intent?.getStringExtra(EXTRA_TRACK_TITLE) ?: "StrideBeat Music"
-        val artist = intent?.getStringExtra(EXTRA_TRACK_ARTIST) ?: "Olahraga & Ritme"
+        currentTitle = intent?.getStringExtra(EXTRA_TRACK_TITLE) ?: "StrideBeat Music"
+        currentArtist = intent?.getStringExtra(EXTRA_TRACK_ARTIST) ?: "Olahraga & Ritme"
         val isPlaying = intent?.getBooleanExtra(EXTRA_IS_PLAYING, true) ?: true
-        val source = intent?.getStringExtra(EXTRA_SOURCE) ?: "SPOTIFY"
+        currentSource = intent?.getStringExtra(EXTRA_SOURCE) ?: "YOUTUBE_MUSIC"
         val audioUrl = intent?.getStringExtra(EXTRA_AUDIO_URL)
 
         if (isPlaying) {
             if (!audioUrl.isNullOrBlank()) {
-                playAudioUrl(audioUrl)
+                playAudio(audioUrl)
             } else {
                 resumeAudio()
             }
@@ -160,8 +232,8 @@ class MusicPlaybackService : Service() {
             pauseAudio()
         }
 
-        updateMediaSession(title, artist, isPlaying)
-        val notification = buildMediaNotification(title, artist, isPlaying, source)
+        updateMediaSession(currentTitle, currentArtist, isPlaying)
+        val notification = buildMediaNotification(currentTitle, currentArtist, isPlaying, currentSource)
         startForeground(NOTIFICATION_ID, notification)
 
         return START_NOT_STICKY
@@ -201,7 +273,7 @@ class MusicPlaybackService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val sourceName = if (source == "SPOTIFY") "Spotify" else "YouTube Music"
+        val sourceName = if (source == "SPOTIFY") "Spotify" else "YouTube Music (Full Song)"
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
@@ -221,6 +293,8 @@ class MusicPlaybackService : Service() {
 
     override fun onDestroy() {
         stopAudio()
+        youTubePlayer?.release()
+        youTubePlayer = null
         mediaPlayer?.release()
         mediaPlayer = null
         mediaSession.release()
@@ -253,6 +327,9 @@ class MusicPlaybackService : Service() {
         const val EXTRA_IS_PLAYING = "EXTRA_IS_PLAYING"
         const val EXTRA_SOURCE = "EXTRA_SOURCE"
         const val EXTRA_AUDIO_URL = "EXTRA_AUDIO_URL"
+
+        var onSkipNextListener: (() -> Unit)? = null
+        var onSkipPreviousListener: (() -> Unit)? = null
 
         fun update(context: Context, track: Track?, isPlaying: Boolean, source: MusicSource) {
             if (track == null) return

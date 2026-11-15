@@ -10,9 +10,12 @@ import com.stridebeat.app.domain.repository.MusicRepository
 import com.stridebeat.app.service.MusicPlaybackService
 import com.stridebeat.app.util.TrackMatchingEngine
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,7 +24,7 @@ class MusicRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context
 ) : MusicRepository {
 
-    private val _activeSource = MutableStateFlow(MusicSource.SPOTIFY)
+    private val _activeSource = MutableStateFlow(MusicSource.YOUTUBE_MUSIC)
     override val activeSource: StateFlow<MusicSource> = _activeSource.asStateFlow()
 
     private val _currentTrack = MutableStateFlow<Track?>(null)
@@ -46,6 +49,16 @@ class MusicRepositoryImpl @Inject constructor(
 
     init {
         initializeCuratedPlaylists()
+        MusicPlaybackService.onSkipNextListener = {
+            CoroutineScope(Dispatchers.Main).launch {
+                skipToNext()
+            }
+        }
+        MusicPlaybackService.onSkipPreviousListener = {
+            CoroutineScope(Dispatchers.Main).launch {
+                skipToPrevious()
+            }
+        }
     }
 
     private fun initializeCuratedPlaylists() {
@@ -57,11 +70,11 @@ class MusicRepositoryImpl @Inject constructor(
                 artist = "M83",
                 album = "Hurry Up, We're Dreaming",
                 durationMs = 244000L,
-                coverUrl = null,
-                audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/74/a2/d3/74a2d361-c6bb-9880-a8d1-d999833d2891/mzaf_15783493292556356203.plus.aac.p.m4a",
+                coverUrl = "https://img.youtube.com/vi/dX3k_QDnzHE/hqdefault.jpg",
+                audioUrl = "youtube:dX3k_QDnzHE",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:1DoBx4h69vQ62jJvWbZ5j5",
-                    MusicSource.YOUTUBE_MUSIC to "ytm_midnight_city"
+                    MusicSource.YOUTUBE_MUSIC to "dX3k_QDnzHE"
                 )
             ),
             Track(
@@ -71,11 +84,11 @@ class MusicRepositoryImpl @Inject constructor(
                 artist = "The Weeknd",
                 album = "Starboy",
                 durationMs = 230000L,
-                coverUrl = null,
-                audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/11/71/d6/1171d6ad-3c96-e027-2af6-58028426588c/mzaf_15137631797407745471.plus.aac.p.m4a",
+                coverUrl = "https://img.youtube.com/vi/Rif-RTvmmss/hqdefault.jpg",
+                audioUrl = "youtube:Rif-RTvmmss",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:7MXVkk9YM5FZ0wWACBRio2",
-                    MusicSource.YOUTUBE_MUSIC to "ytm_starboy"
+                    MusicSource.YOUTUBE_MUSIC to "Rif-RTvmmss"
                 )
             ),
             Track(
@@ -85,11 +98,11 @@ class MusicRepositoryImpl @Inject constructor(
                 artist = "Woodkid",
                 album = "The Golden Age",
                 durationMs = 213000L,
-                coverUrl = null,
-                audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/04/d2/94/04d294be-6311-baea-7217-99f0b4b7b3d4/mzaf_9016561572988079797.plus.aac.p.m4a",
+                coverUrl = "https://img.youtube.com/vi/lmc2Zzk46vk/hqdefault.jpg",
+                audioUrl = "youtube:lmc2Zzk46vk",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:0Bo5cQoU6hLpZ5a3c2i1O4",
-                    MusicSource.YOUTUBE_MUSIC to "ytm_run_boy_run"
+                    MusicSource.YOUTUBE_MUSIC to "lmc2Zzk46vk"
                 )
             ),
             Track(
@@ -99,11 +112,11 @@ class MusicRepositoryImpl @Inject constructor(
                 artist = "Kanye West",
                 album = "Graduation",
                 durationMs = 311000L,
-                coverUrl = null,
-                audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/9e/cc/69/9ecc6918-a8dc-354f-909f-ccc20a0a7a33/mzaf_7863921970418240507.plus.aac.p.m4a",
+                coverUrl = "https://img.youtube.com/vi/PsO6ZnUZI0g/hqdefault.jpg",
+                audioUrl = "youtube:PsO6ZnUZI0g",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:4fzsfWzRhPawzqhXZwn925",
-                    MusicSource.YOUTUBE_MUSIC to "ytm_stronger"
+                    MusicSource.YOUTUBE_MUSIC to "PsO6ZnUZI0g"
                 )
             ),
             Track(
@@ -113,11 +126,11 @@ class MusicRepositoryImpl @Inject constructor(
                 artist = "Bastille",
                 album = "Bad Blood",
                 durationMs = 214000L,
-                coverUrl = null,
-                audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/b3/3d/fb/b33dfbb6-dac3-b97c-b239-18cf3688fdb7/mzaf_8177734646947686437.plus.aac.p.m4a",
+                coverUrl = "https://img.youtube.com/vi/F90Cw4ok-KM/hqdefault.jpg",
+                audioUrl = "youtube:F90Cw4ok-KM",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:3LmpQiJ12G98cu624FNoTJ",
-                    MusicSource.YOUTUBE_MUSIC to "ytm_pompeii"
+                    MusicSource.YOUTUBE_MUSIC to "F90Cw4ok-KM"
                 )
             ),
             Track(
@@ -127,11 +140,11 @@ class MusicRepositoryImpl @Inject constructor(
                 artist = "Avicii",
                 album = "Levels - Single",
                 durationMs = 195000L,
-                coverUrl = null,
-                audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/66/dc/bd/66dcbd68-b557-bdfd-f2c2-a05491758783/mzaf_13654489760720011690.plus.aac.p.m4a",
+                coverUrl = "https://img.youtube.com/vi/_ovdm2yX4MA/hqdefault.jpg",
+                audioUrl = "youtube:_ovdm2yX4MA",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:levels_avicii",
-                    MusicSource.YOUTUBE_MUSIC to "ytm_levels_avicii"
+                    MusicSource.YOUTUBE_MUSIC to "_ovdm2yX4MA"
                 )
             )
         )
@@ -144,11 +157,11 @@ class MusicRepositoryImpl @Inject constructor(
                 artist = "Red Hot Chili Peppers",
                 album = "By the Way",
                 durationMs = 269000L,
-                coverUrl = null,
-                audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/b4/37/77/b43777c1-aa65-2d44-6130-7560392981af/mzaf_10231906724003007738.plus.aac.p.m4a",
+                coverUrl = "https://img.youtube.com/vi/8DyziWtk60w/hqdefault.jpg",
+                audioUrl = "youtube:8DyziWtk60w",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:3ZOEytgrvLwQaqXreDs2Jx",
-                    MusicSource.YOUTUBE_MUSIC to "ytm_cant_stop"
+                    MusicSource.YOUTUBE_MUSIC to "8DyziWtk60w"
                 )
             ),
             Track(
@@ -158,11 +171,11 @@ class MusicRepositoryImpl @Inject constructor(
                 artist = "Ellie Goulding",
                 album = "Bright Lights",
                 durationMs = 244000L,
-                coverUrl = null,
-                audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/eb/ca/b8/ebcab8fd-433b-93a6-4fe5-a9cb434d97a9/mzaf_13395952697862141833.plus.aac.p.m4a",
+                coverUrl = "https://img.youtube.com/vi/0NKUpo_xKyQ/hqdefault.jpg",
+                audioUrl = "youtube:0NKUpo_xKyQ",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:11ozH05lM8vT4vB2B1wN3e",
-                    MusicSource.YOUTUBE_MUSIC to "ytm_lights"
+                    MusicSource.YOUTUBE_MUSIC to "0NKUpo_xKyQ"
                 )
             ),
             Track(
@@ -172,11 +185,11 @@ class MusicRepositoryImpl @Inject constructor(
                 artist = "Daft Punk",
                 album = "Discovery",
                 durationMs = 320000L,
-                coverUrl = null,
-                audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/5d/93/d8/5d93d83f-ad1e-da4d-1d79-9937bdff24ec/mzaf_14396932211949300852.plus.aac.p.m4a",
+                coverUrl = "https://img.youtube.com/vi/FGBhQbmMxH8/hqdefault.jpg",
+                audioUrl = "youtube:FGBhQbmMxH8",
                 platformIds = mapOf(
                     MusicSource.SPOTIFY to "spotify:track:0DiWol3AO6WpXZgp0goxAV",
-                    MusicSource.YOUTUBE_MUSIC to "ytm_one_more_time"
+                    MusicSource.YOUTUBE_MUSIC to "FGBhQbmMxH8"
                 )
             )
         )
