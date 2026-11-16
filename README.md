@@ -12,7 +12,7 @@
 ## 📌 Status Pengembangan
 
 - **Platform:** Android Native (100% Kotlin + Jetpack Compose Material 3)
-- **Package Name:** `com.stridebeat.app` (dibangun pada v0.1.0)
+- **Package Name:** `com.stridebeat.app` (dibangun pada v0.1.1)
 - **Min SDK:** 26 (Android 8.0 Oreo) | **Target SDK:** 35 (Android 15)
 - **Arsitektur:** Clean Architecture + MVVM + Unidirectional Data Flow (StateFlow) + Hilt DI + WorkManager
 - **Status Milestone:**
