@@ -313,7 +313,7 @@ fun HomeScreen(
 
                         Column {
                             Text(
-                                text = "${lastSession.caloriesKcal.toInt()} kcal",
+                                text = "${lastSession.caloriesKcal?.toInt() ?: 0} kcal",
                                 style = MaterialTheme.typography.headlineSmall,
                                 color = TextPrimaryDark,
                                 fontWeight = FontWeight.Bold
