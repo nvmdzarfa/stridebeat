@@ -1001,7 +1001,7 @@ private fun YouTubeMusicAccountCard(
                         checkedThumbColor = Color.White,
                         checkedTrackColor = YouTubeBrand,
                         uncheckedThumbColor = glass.textMuted,
-                        uncheckedTrackColor = glass.cardBorder
+                        uncheckedTrackColor = glass.trackBarInactive
                     )
                 )
             }
