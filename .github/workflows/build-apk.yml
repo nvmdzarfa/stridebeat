@@ -32,6 +32,8 @@ jobs:
         env:
           STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
           STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+          YOUTUBE_MUSIC_OAUTH_CLIENT_ID: ${{ secrets.YOUTUBE_MUSIC_OAUTH_CLIENT_ID }}
+          SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
         run: |
           echo "SPOTIFY_CLIENT_ID=11f00fd3daf04d1a9c6b38594a26005a" >> local.properties
           echo "SPOTIFY_REDIRECT_URI=stridebeat://spotify-callback" >> local.properties
@@ -42,6 +44,12 @@ jobs:
           fi
           if [ -n "$CLEAN_STRAVA_SECRET" ]; then
             echo "STRAVA_CLIENT_SECRET=$CLEAN_STRAVA_SECRET" >> local.properties
+          fi
+          if [ -n "$YOUTUBE_MUSIC_OAUTH_CLIENT_ID" ]; then
+            echo "YOUTUBE_MUSIC_OAUTH_CLIENT_ID=$YOUTUBE_MUSIC_OAUTH_CLIENT_ID" >> local.properties
+          fi
+          if [ -n "$SOUNDCLOUD_CLIENT_ID" ]; then
+            echo "SOUNDCLOUD_CLIENT_ID=$SOUNDCLOUD_CLIENT_ID" >> local.properties
           fi
           if [ -n "$CLEAN_STRAVA_ID" ] && [ -n "$CLEAN_STRAVA_SECRET" ]; then
             echo "✅ STRAVA_CLIENT_ID & STRAVA_CLIENT_SECRET configured"
@@ -97,10 +105,10 @@ jobs:
           mkdir -p release-output
           if [ "$IS_SIGNED_RELEASE" = "true" ]; then
             ./gradlew assembleRelease --stacktrace
-            cp app/build/outputs/apk/release/app-release.apk release-output/StrideBeat-v0.1.2.apk
+            cp app/build/outputs/apk/release/app-release.apk release-output/StrideBeat-v0.2.0.apk
           else
             ./gradlew assembleDebug --stacktrace
-            cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.1.2-debug.apk
+            cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.2.0-debug.apk
           fi
 
       - name: Verify APK Alignment, Signing (v1/v2/v3), and Manifest
@@ -115,7 +123,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StrideBeat-v0.1.2
+          name: StrideBeat-v0.2.0
           path: release-output/*.apk
           retention-days: 30
 
@@ -123,16 +131,17 @@ jobs:
         if: github.ref == 'refs/heads/main' && env.IS_SIGNED_RELEASE == 'true' && env.HAS_GOOGLE_SERVICES == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.2
-          name: StrideBeat v0.1.2 (M5 Strava Native)
+          tag_name: v0.2.0
+          name: StrideBeat v0.2.0 (M6 YouTube Music Beta + Music Switcher)
           body: |
-            ### 🏃 StrideBeat v0.1.2 Release — Milestone M5 (Strava Native)
+            ### 🏃 StrideBeat v0.2.0 Release — Milestone M6 (YouTube Music Beta + Music Switcher)
 
-            Unduh file `.apk` di bawah — **bisa langsung ditimpa di atas `v0.0.12` tanpa uninstall!**
-            - 🔧 **Perbaikan Kompatibilitas Installer Android/ColorOS**: Mengaktifkan APK Signature Scheme v1 + v2 + v3 dan melengkapi deklarasi `foregroundServiceType="dataSync"` untuk WorkManager (`targetSdk 35`).
-            - 🟠 **Strava Native (OAuth 2.0 + PKCE + Auto-Refresh Token)**: Hubungkan & putuskan akun Strava terenkripsi AES-256 GCM tanpa mengganggu Google/Spotify.
-            - ☁️ **Upload ke Strava + Daftar Lagu & Preview**: Upload sesi + rute GPX + maksimal 10 lagu di deskripsi, dukungan WorkManager saat offline, dan opsi Auto-upload (default MATI).
-            - 📥 **Impor Riwayat Strava**: Impor hingga 30 aktivitas terbaru beserta rute polyline dengan deduplikasi otomatis dan badge status `Strava ✓` / `Dari Strava`.
-          files: release-output/StrideBeat-v0.1.2.apk
+            Unduh file `.apk` di bawah — **bisa langsung di-update di atas `v0.1.2` tanpa uninstall!**
+            - 🎵 **Music Switcher `SoundCloud ↔ YouTube Music`**: Ganti sumber pemutaran secara fleksibel di mini-player & bottom sheet tanpa pernah mereset durasi, jarak, pace, atau GPS tracking olahraga di `TrackingService`.
+            - 🔴 **YouTube Music (Beta / Tidak Resmi)**: Integrasi pencarian katalog dan resolusi direct audio stream on-demand InnerTube API dengan penanganan aman terhadap penolakan 403 / cipher.
+            - 🛡️ **Feature Flag & Kill Switch**: Kontrol aktivasi YouTube Music dari menu Pengaturan (tersimpan di `DataStore Preferences`), otomatis beralih ke SoundCloud jika dinonaktifkan.
+            - 🎧 **Playlist Workout Netral**: 3 playlist olahraga netral platform (*Lari Pagi 140+ BPM*, *Tempo Boost*, *Warmup & Cooldown*) dengan pencocokan ISRC dan toleransi durasi ±2 detik.
+            - 🧹 **Pembersihan Spotify UI & Kompatibilitas Riwayat**: Spotify disembunyikan dari UI Pengaturan dan Pemutar sesuai keputusan pemilik (akun non-Premium), dan riwayat sesi lama tetap terbaca mulus dengan remapping transparan.
+          files: release-output/StrideBeat-v0.2.0.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

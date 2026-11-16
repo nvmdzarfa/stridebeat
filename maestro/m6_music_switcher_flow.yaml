@@ -1,0 +1,46 @@
+appId: com.stridebeat.app
+---
+# Flow Pengujian Otomatis Maestro untuk Milestone M6 — YouTube Music (Beta) + Music Switcher Utuh
+# Memverifikasi PRD §6.3 & §6.4:
+# 1. Mulai Workout
+# 2. Buka Bottom Sheet Pemutar Musik
+# 3. Verifikasi Switcher Sumber Musik (SoundCloud oranye ↔ YouTube Music Beta merah)
+# 4. Verifikasi Daftar Playlist Workout Netral
+# 5. Ganti Sumber Musik di tengah workout tanpa mereset timer GPS (WAKTU BERJALAN)
+# 6. Selesaikan Sesi & Cek Badge Platform Musik di Recap
+
+- launchApp:
+    clearState: true
+
+# 1. Mulai Workout
+- assertVisible: "MULAI OLAHRAGA"
+- tapOn: "MULAI OLAHRAGA"
+
+# 2. Verifikasi Sesi Aktif
+- assertVisible: "WAKTU BERJALAN"
+
+# 3. Buka Sheet Pemutar Musik
+- tapOn: "Pilih Lagu Workout"
+
+# 4. Verifikasi Komponen Sheet Musik M6
+- assertVisible: "SUMBER MUSIK AKTIF"
+- assertVisible: "SoundCloud"
+- assertVisible: "YouTube Music"
+- assertVisible: "PLAYLIST WORKOUT NETRAL"
+- assertVisible: "Lari Pagi 140+ BPM"
+
+# 5. Beralih ke YouTube Music (Beta)
+- tapOn: "YouTube Music"
+- assertVisible: "Beta"
+
+# 6. Tutup Sheet & Verifikasi Tracking Tidak Terganggu
+- back
+- assertVisible: "WAKTU BERJALAN"
+- assertVisible: "YouTube Music"
+
+# 7. Selesaikan Sesi Workout
+- tapOn: "Selesai"
+- tapOn: "Ya, Selesai"
+
+# 8. Verifikasi Layar Recap Sesi
+- assertVisible: "Recap Olahraga"

@@ -12,7 +12,8 @@
 ## 📌 Status Pengembangan
 
 - **Platform:** Android Native (100% Kotlin + Jetpack Compose Material 3)
-- **Package Name:** `com.stridebeat.app` (dibangun pada v0.1.2)
+- **Package Name:** `com.stridebeat.app` (dibangun pada v0.2.0)
+
 - **Min SDK:** 26 (Android 8.0 Oreo) | **Target SDK:** 35 (Android 15)
 - **Arsitektur:** Clean Architecture + MVVM + Unidirectional Data Flow (StateFlow) + Hilt DI + WorkManager
 - **Status Milestone:**
@@ -21,10 +22,11 @@
   - ✅ **M2 — GPS Tracking, Foreground Service & Peta:** Selesai (Fused Location Provider, Foreground Service dengan notifikasi persisten, canvas peta polyline live, kalkulasi Haversine distance, pace, kalori estimasi, auto-pause, peringatan GPS terputus).
   - ✅ **M3 — Musik & Playback:** Selesai (SoundCloud API full-track >45 detik + Media3 ExoPlayer HLS/MP3, Media Notification & Lock Screen dengan cover album, pencatatan otomatis lagu per sesi).
   - ✅ **M4 — Recap, Riwayat & Export GPX:** Selesai (Room local SQLite database `stridebeat.db`, ekspor rute universal GPX 1.1, rekap metrik + lagu, share teks, cek update GitHub Releases).
-  - ✅ **M5 — Strava Native (Phase 2):** Selesai (Strava OAuth 2.0 + PKCE + auto-refresh token AES-256 GCM, Upload ke Strava via GPX `POST /uploads` & fallback `POST /activities` dengan preview/edit nama & deskripsi lagu max 10, WorkManager offline queue + notifikasi, auto-upload opsional default MATI, impor 30 aktivitas Strava terbaru dengan deduplikasi & polyline decoder, status badge di Riwayat & Recap).
-  - ⏳ **M6 — YouTube Music + Music Switcher Utuh:** Belum dikerjakan (milestone berikutnya).
+  - ✅ **M5 — Strava Native (Phase 2):** Selesai (Strava OAuth 2.0 + PKCE + auto-refresh token AES-256 GCM, Upload ke Strava via GPX `POST /uploads` & fallback `POST /activities`, WorkManager offline queue + notifikasi, auto-upload opsional default MATI, impor 30 aktivitas Strava terbaru dengan deduplikasi).
+  - ✅ **M6 — YouTube Music (Beta) + Music Switcher Utuh:** Selesai (Switcher `SoundCloud ↔ YouTube Music` tanpa me-reset tracking olahraga, InnerTube search & on-demand player stream resolution, toleransi durasi pencocokan ±2 detik, 3 playlist workout netral, feature flag kill-switch di Pengaturan & DataStore, Spotify dihapus dari UI aktif sesuai keputusan pemilik).
   - ⏳ **M7 — Musik Mengikuti Pace + Audio Cue:** Belum dikerjakan.
   - ⏳ **M8 — Statistik Lanjutan + Share Gambar:** Belum dikerjakan.
+
 
 ---
 

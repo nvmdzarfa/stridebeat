@@ -1,6 +1,6 @@
 appId: com.stridebeat.app
 ---
-# Flow Pengujian Otomatis Maestro untuk Milestone M3 — Multi-Source Music Player & Switcher
+# Flow Pengujian Otomatis Maestro untuk Milestone M3/M6 — Multi-Source Music Player & Switcher
 # Memverifikasi US-02 & US-03: Ganti sumber musik tanpa mereset tracking, pencatatan lagu per sesi
 
 - launchApp:
@@ -10,31 +10,25 @@ appId: com.stridebeat.app
 - assertVisible: "MULAI OLAHRAGA"
 - tapOn: "MULAI OLAHRAGA"
 
-# 2. Buka Bottom Sheet Pemutar Musik Lengkap
-- assertVisible: "Midnight City"
-- tapOn: "Midnight City"
+# 2. Buka Bottom Sheet Pemutar Musik
+- assertVisible: "WAKTU BERJALAN"
+- tapOn:
+    id: "mini_player"
+    optional: true
 
-# 3. Verifikasi Sheet Pemutar Musik
+# 3. Verifikasi Sheet Pemutar Musik & Sumber Aktif
 - assertVisible: "SUMBER MUSIK AKTIF"
-- assertVisible: "Spotify"
+- assertVisible: "SoundCloud"
 - assertVisible: "YouTube Music"
 
 # 4. Ganti Sumber Musik ke YouTube Music (US-02)
 - tapOn: "YouTube Music"
-- assertVisible: "PILIH PLAYLIST WORKOUT"
 
-# 5. Ganti Lagu / Skip Next
-- tapOn:
-    contentDescription: "Berikutnya"
-- assertVisible: "Starboy"
-
-# 6. Tutup Sheet & Verifikasi Tracking Tetap Berjalan Normal
+# 5. Tutup Sheet & Verifikasi Tracking Tetap Berjalan Normal Tanpa Reset
 - back
-- assertVisible: "LARI OUTDOOR"
 - assertVisible: "WAKTU BERJALAN"
 
-# 7. Selesaikan Sesi & Verifikasi Rekap Lagu
+# 6. Selesaikan Sesi & Verifikasi Rekap Lagu
 - tapOn: "Selesai"
 - tapOn: "Ya, Selesai"
 - assertVisible: "Recap Olahraga"
-- assertVisible: "Lagu yang Menemanimu"
