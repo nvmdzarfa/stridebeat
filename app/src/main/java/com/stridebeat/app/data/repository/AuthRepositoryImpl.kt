@@ -1,10 +1,14 @@
 package com.stridebeat.app.data.repository
 
+import com.stridebeat.app.data.local.MusicPreferences
 import com.stridebeat.app.data.local.SecureTokenStorage
 import com.stridebeat.app.data.remote.spotify.SpotifyAuthManager
 import com.stridebeat.app.data.remote.strava.StravaAuthManager
+import com.stridebeat.app.data.remote.youtubemusic.YouTubeMusicAuthManager
+import com.stridebeat.app.data.remote.youtubemusic.YouTubeMusicConfig
 import com.stridebeat.app.domain.model.SpotifyAuthState
 import com.stridebeat.app.domain.model.StravaAuthState
+import com.stridebeat.app.domain.model.YouTubeMusicAuthState
 import com.stridebeat.app.domain.repository.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,7 +20,9 @@ import javax.inject.Singleton
 class AuthRepositoryImpl @Inject constructor(
     private val tokenStorage: SecureTokenStorage,
     private val spotifyAuthManager: SpotifyAuthManager,
-    private val stravaAuthManager: StravaAuthManager
+    private val stravaAuthManager: StravaAuthManager,
+    private val youTubeMusicAuthManager: YouTubeMusicAuthManager,
+    private val musicPreferences: MusicPreferences
 ) : AuthRepository {
 
     private val _spotifyAuthState = MutableStateFlow<SpotifyAuthState>(SpotifyAuthState.NotConnected)
@@ -25,6 +31,9 @@ class AuthRepositoryImpl @Inject constructor(
     private val _stravaAuthState = MutableStateFlow<StravaAuthState>(StravaAuthState.NotConnected)
     override val stravaAuthState: StateFlow<StravaAuthState> = _stravaAuthState.asStateFlow()
 
+    private val _youTubeMusicAuthState = MutableStateFlow<YouTubeMusicAuthState>(YouTubeMusicAuthState.NotConnected)
+    override val youTubeMusicAuthState: StateFlow<YouTubeMusicAuthState> = _youTubeMusicAuthState.asStateFlow()
+
     init {
         restoreStoredAuthStates()
     }
@@ -32,6 +41,7 @@ class AuthRepositoryImpl @Inject constructor(
     private fun restoreStoredAuthStates() {
         restoreSpotifyState()
         restoreStravaState()
+        restoreYouTubeMusicState()
     }
 
     private fun restoreSpotifyState() {
@@ -71,31 +81,34 @@ class AuthRepositoryImpl @Inject constructor(
             if (expiredWithoutRefresh) {
                 _stravaAuthState.value = StravaAuthState.TokenExpired
             } else {
-                _stravaAuthState.value = StravaAuthState.Connected(
-                    athleteName = athleteName ?: "Atlet Strava",
-                    athleteId = athleteId
-                )
+                _stravaAuthState.value = StravaAuthState.Connected(athleteName ?: "Atlet Strava", athleteId)
             }
         } else {
             _stravaAuthState.value = StravaAuthState.NotConnected
         }
     }
 
-    override fun getSpotifyAuthUrl(): String? {
-        if (!spotifyAuthManager.isConfigured()) {
-            _spotifyAuthState.value = SpotifyAuthState.MissingConfig
-            return null
+    private fun restoreYouTubeMusicState() {
+        if (!YouTubeMusicConfig.isYouTubeMusicEnabled) {
+            _youTubeMusicAuthState.value = YouTubeMusicAuthState.Disabled
+            return
         }
-        _spotifyAuthState.value = SpotifyAuthState.Connecting
-        return spotifyAuthManager.createAuthorizationUrl()
+        val user = tokenStorage.getYouTubeMusicUserName()
+        if (!user.isNullOrBlank()) {
+            _youTubeMusicAuthState.value = YouTubeMusicAuthState.Connected(user)
+        } else {
+            _youTubeMusicAuthState.value = YouTubeMusicAuthState.NotConnected
+        }
     }
+
+    override fun getSpotifyAuthUrl(): String? = spotifyAuthManager.createAuthorizationUrl()
 
     override suspend fun handleSpotifyCallback(code: String): Result<Unit> {
         _spotifyAuthState.value = SpotifyAuthState.Connecting
         val result = spotifyAuthManager.exchangeCodeForTokens(code)
         return if (result.isSuccess) {
-            val (userName, isPremium) = result.getOrThrow()
-            _spotifyAuthState.value = SpotifyAuthState.Connected(userName, isPremium)
+            val (user, isPremium) = result.getOrThrow()
+            _spotifyAuthState.value = SpotifyAuthState.Connected(user, isPremium)
             Result.success(Unit)
         } else {
             val err = result.exceptionOrNull()?.localizedMessage ?: "Gagal login Spotify"
@@ -106,15 +119,10 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun disconnectSpotify() {
         tokenStorage.clearSpotifyTokens()
-        _spotifyAuthState.value = if (spotifyAuthManager.isConfigured()) SpotifyAuthState.NotConnected else SpotifyAuthState.MissingConfig
+        restoreSpotifyState()
     }
 
     override fun getStravaAuthUrl(): String? {
-        if (!stravaAuthManager.isConfigured()) {
-            _stravaAuthState.value = StravaAuthState.MissingConfig
-            return null
-        }
-        _stravaAuthState.value = StravaAuthState.Connecting
         return stravaAuthManager.createAuthorizationUrl()
     }
 
@@ -162,5 +170,35 @@ class AuthRepositoryImpl @Inject constructor(
 
     override fun refreshStravaState() {
         restoreStravaState()
+    }
+
+    // --- YOUTUBE MUSIC (M6) ---
+    override fun getYouTubeMusicAuthUrl(): String? {
+        if (!YouTubeMusicConfig.isYouTubeMusicEnabled) return null
+        return youTubeMusicAuthManager.createAuthorizationUrl()
+    }
+
+    override suspend fun handleYouTubeMusicCallback(code: String): Result<Unit> {
+        _youTubeMusicAuthState.value = YouTubeMusicAuthState.Connecting
+        val result = youTubeMusicAuthManager.handleCallback(code)
+        return if (result.isSuccess) {
+            val user = result.getOrThrow()
+            _youTubeMusicAuthState.value = YouTubeMusicAuthState.Connected(user)
+            Result.success(Unit)
+        } else {
+            val err = result.exceptionOrNull()?.message ?: "YouTube Music sedang tidak bisa dihubungkan. Coba lagi nanti."
+            _youTubeMusicAuthState.value = YouTubeMusicAuthState.Error(err)
+            Result.failure(Exception(err))
+        }
+    }
+
+    override suspend fun disconnectYouTubeMusic() {
+        youTubeMusicAuthManager.disconnect()
+        restoreYouTubeMusicState()
+    }
+
+    override fun refreshYouTubeMusicFeatureFlag(enabled: Boolean) {
+        YouTubeMusicConfig.isYouTubeMusicEnabled = enabled
+        restoreYouTubeMusicState()
     }
 }

@@ -45,10 +45,19 @@ object AppModule {
     fun provideAuthRepository(
         tokenStorage: SecureTokenStorage,
         spotifyAuthManager: SpotifyAuthManager,
-        stravaAuthManager: StravaAuthManager
+        stravaAuthManager: StravaAuthManager,
+        youTubeMusicAuthManager: com.stridebeat.app.data.remote.youtubemusic.YouTubeMusicAuthManager,
+        musicPreferences: com.stridebeat.app.data.local.MusicPreferences
     ): AuthRepository {
-        return AuthRepositoryImpl(tokenStorage, spotifyAuthManager, stravaAuthManager)
+        return AuthRepositoryImpl(
+            tokenStorage,
+            spotifyAuthManager,
+            stravaAuthManager,
+            youTubeMusicAuthManager,
+            musicPreferences
+        )
     }
+
 
     @Provides
     @Singleton
