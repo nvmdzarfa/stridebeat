@@ -1,5 +1,7 @@
 package com.stridebeat.app.presentation.home
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -61,6 +63,13 @@ fun HomeScreen(
     val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
     val userProfile by accountViewModel.userProfile.collectAsStateWithLifecycle()
     val isSigningIn by accountViewModel.isSigningIn.collectAsStateWithLifecycle()
+    val accountError by accountViewModel.errorMessage.collectAsStateWithLifecycle()
+
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        accountViewModel.handleGoogleSignInResult(result.resultCode, result.data)
+    }
 
     val glass = StrideBeatGlass.colors
     val systemDark = isSystemInDarkTheme()
@@ -257,47 +266,61 @@ fun HomeScreen(
             cornerRadius = 18.dp,
             onClick = {
                 if (!userProfile.isGoogleSignedIn && accountViewModel.isFirebaseConfigured) {
-                    accountViewModel.signInWithGoogle(context)
+                    accountViewModel.launchGoogleSignIn(context) { intent ->
+                        googleSignInLauncher.launch(intent)
+                    }
                 } else {
                     onNavigateToSettings()
                 }
             }
         ) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.weight(1f)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(
-                        imageVector = if (userProfile.isGoogleSignedIn) Icons.Default.CloudDone else Icons.Default.CloudUpload,
-                        contentDescription = null,
-                        tint = if (userProfile.isGoogleSignedIn) glass.primary else StatusWarning,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = if (userProfile.isGoogleSignedIn)
-                            "Profil & Riwayat Lari Tersimpan di Cloud"
-                        else
-                            "Masuk Akun Google agar nama & data aman di Cloud",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = glass.textPrimary
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = if (userProfile.isGoogleSignedIn) Icons.Default.CloudDone else Icons.Default.CloudUpload,
+                            contentDescription = null,
+                            tint = if (userProfile.isGoogleSignedIn) glass.primary else StatusWarning,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = if (userProfile.isGoogleSignedIn)
+                                "Profil & Riwayat Lari Tersimpan di Cloud"
+                            else
+                                "Masuk Akun Google agar nama & data aman di Cloud",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = glass.textPrimary
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    GlassPill(tint = glass.primary) {
+                        Text(
+                            text = if (isSigningIn) "..." else if (userProfile.isGoogleSignedIn) "Pengaturan" else "Masuk",
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = glass.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                GlassPill(tint = glass.primary) {
+                if (!accountError.isNullOrBlank()) {
                     Text(
-                        text = if (isSigningIn) "..." else if (userProfile.isGoogleSignedIn) "Pengaturan" else "Masuk",
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = glass.primary,
-                        fontWeight = FontWeight.Bold
+                        text = accountError!!,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = StatusError
                     )
                 }
             }

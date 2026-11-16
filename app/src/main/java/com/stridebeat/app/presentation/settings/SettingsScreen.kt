@@ -73,6 +73,12 @@ fun SettingsScreen(
         updateViewModel.triggerPreviewUpdatePopupAndNotif()
     }
 
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        accountViewModel.handleGoogleSignInResult(result.resultCode, result.data)
+    }
+
     if (showSpotifyConfigDialog) {
         AlertDialog(
             onDismissRequest = { showSpotifyConfigDialog = false },
@@ -394,7 +400,11 @@ fun SettingsScreen(
                     }
                 } else {
                     GlassPrimaryButton(
-                        onClick = { accountViewModel.signInWithGoogle(context) },
+                        onClick = {
+                            accountViewModel.launchGoogleSignIn(context) { intent ->
+                                googleSignInLauncher.launch(intent)
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(46.dp),

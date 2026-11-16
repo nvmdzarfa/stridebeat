@@ -1,6 +1,7 @@
 package com.stridebeat.app.presentation.profile
 
 import android.content.Context
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stridebeat.app.data.remote.firebase.FirebaseSyncManager
@@ -40,16 +41,44 @@ class AccountViewModel @Inject constructor(
         }
     }
 
-    fun signInWithGoogle(activityContext: Context) {
+    fun launchGoogleSignIn(activityContext: Context, onIntentReady: (Intent) -> Unit) {
         if (_isSigningIn.value) return
         viewModelScope.launch {
             _isSigningIn.value = true
             _errorMessage.value = null
-            val result = firebaseSyncManager.signInWithGoogle(activityContext)
-            result.onFailure { err ->
-                _errorMessage.value = err.message
+            val intentResult = try {
+                firebaseSyncManager.createGoogleSignInIntent(activityContext)
+            } catch (e: Exception) {
+                Result.failure(e)
             }
-            _isSigningIn.value = false
+            intentResult.onSuccess { intent ->
+                try {
+                    onIntentReady(intent)
+                } catch (e: Exception) {
+                    _errorMessage.value = e.localizedMessage ?: "Gagal membuka dialog akun Google."
+                    _isSigningIn.value = false
+                }
+            }.onFailure { err ->
+                _errorMessage.value = err.message
+                _isSigningIn.value = false
+            }
+        }
+    }
+
+    fun handleGoogleSignInResult(resultCode: Int, data: Intent?) {
+        viewModelScope.launch {
+            _isSigningIn.value = true
+            _errorMessage.value = null
+            try {
+                val result = firebaseSyncManager.handleGoogleSignInIntentResult(resultCode, data)
+                result.onFailure { err ->
+                    _errorMessage.value = err.message
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.localizedMessage ?: "Terjadi kesalahan saat login Google."
+            } finally {
+                _isSigningIn.value = false
+            }
         }
     }
 
@@ -58,9 +87,14 @@ class AccountViewModel @Inject constructor(
         viewModelScope.launch {
             _isSyncing.value = true
             _errorMessage.value = null
-            firebaseSyncManager.syncAllOnSignIn()
-                .onFailure { _errorMessage.value = it.message }
-            _isSyncing.value = false
+            try {
+                firebaseSyncManager.syncAllOnSignIn()
+                    .onFailure { _errorMessage.value = it.message }
+            } catch (e: Exception) {
+                _errorMessage.value = e.localizedMessage ?: "Gagal sinkronisasi cloud."
+            } finally {
+                _isSyncing.value = false
+            }
         }
     }
 

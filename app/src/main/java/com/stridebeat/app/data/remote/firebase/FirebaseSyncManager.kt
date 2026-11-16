@@ -1,15 +1,12 @@
 package com.stridebeat.app.data.remote.firebase
 
+import android.app.Activity
 import android.content.Context
-import androidx.credentials.ClearCredentialStateRequest
-import androidx.credentials.CredentialManager
-import androidx.credentials.CustomCredential
-import androidx.credentials.GetCredentialRequest
-import androidx.credentials.exceptions.GetCredentialCancellationException
-import androidx.credentials.exceptions.NoCredentialException
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import android.content.Intent
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes
+import com.google.android.gms.common.api.ApiException
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
@@ -17,7 +14,6 @@ import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.stridebeat.app.BuildConfig
-import com.stridebeat.app.data.local.room.converter.Converters
 import com.stridebeat.app.data.local.room.dao.WorkoutDao
 import com.stridebeat.app.data.local.room.entity.WorkoutSessionEntity
 import com.stridebeat.app.domain.model.UserProfile
@@ -28,6 +24,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,7 +35,6 @@ class FirebaseSyncManager @Inject constructor(
     private val workoutDao: WorkoutDao
 ) {
     private val prefs = context.getSharedPreferences("stridebeat_profile_prefs", Context.MODE_PRIVATE)
-    private val converters = Converters()
 
     private val _userProfile = MutableStateFlow(loadCachedProfile())
     val userProfile: StateFlow<UserProfile> = _userProfile.asStateFlow()
@@ -60,6 +57,13 @@ class FirebaseSyncManager @Inject constructor(
         val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
         val fromRes = if (resId != 0) context.getString(resId) else ""
         return fromRes.ifBlank { BuildConfig.GOOGLE_WEB_CLIENT_ID }
+    }
+
+    private fun buildGoogleSignInOptions(webClientId: String): GoogleSignInOptions {
+        return GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(webClientId)
+            .requestEmail()
+            .build()
     }
 
     private fun loadCachedProfile(): UserProfile {
@@ -104,63 +108,78 @@ class FirebaseSyncManager @Inject constructor(
         )
     }
 
-    suspend fun signInWithGoogle(activityContext: Context): Result<UserProfile> {
+    suspend fun createGoogleSignInIntent(activityContext: Context): Result<Intent> {
         if (!isFirebaseConfigured) {
             return Result.failure(
-                IllegalStateException("Firebase belum dikonfigurasi. Tambahkan google-services.json & rebuild APK.")
+                IllegalStateException("Firebase belum dikonfigurasi. Pastikan google-services.json terpasang di build ini.")
+            )
+        }
+        return try {
+            val webClientId = resolveWebClientId()
+            val client = GoogleSignIn.getClient(activityContext, buildGoogleSignInOptions(webClientId))
+            // Clear cached GoogleSignIn account so user can pick their Google account cleanly
+            withTimeoutOrNull(2_000L) {
+                try { client.signOut().await() } catch (_: Exception) {}
+            }
+            Result.success(client.signInIntent)
+        } catch (e: Exception) {
+            Result.failure(Exception(e.localizedMessage ?: "Gagal membuka pemilih akun Google."))
+        }
+    }
+
+    suspend fun handleGoogleSignInIntentResult(resultCode: Int, data: Intent?): Result<UserProfile> {
+        if (!isFirebaseConfigured) {
+            return Result.failure(IllegalStateException("Firebase belum dikonfigurasi."))
+        }
+        if (data == null) {
+            return Result.failure(
+                Exception(
+                    if (resultCode == Activity.RESULT_CANCELED) "Login Google dibatalkan."
+                    else "Tidak menerima data login dari Google."
+                )
             )
         }
 
-        val webClientId = resolveWebClientId()
-        val credentialManager = CredentialManager.create(activityContext)
-
         return try {
-            val result = try {
-                val googleIdOption = GetGoogleIdOption.Builder()
-                    .setFilterByAuthorizedAccounts(false)
-                    .setServerClientId(webClientId)
-                    .setAutoSelectEnabled(false)
-                    .build()
-                val request = GetCredentialRequest.Builder()
-                    .addCredentialOption(googleIdOption)
-                    .build()
-                credentialManager.getCredential(activityContext, request)
-            } catch (_: NoCredentialException) {
-                // Fallback ke Sign-In with Google dialog (penting untuk Xiaomi/Oppo/Realme/Vivo)
-                val signInWithGoogleOption = GetSignInWithGoogleOption.Builder(webClientId).build()
-                val request = GetCredentialRequest.Builder()
-                    .addCredentialOption(signInWithGoogleOption)
-                    .build()
-                credentialManager.getCredential(activityContext, request)
-            }
+            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
+            val account = task.getResult(ApiException::class.java)
+            val idToken = account.idToken
+                ?: return Result.failure(IllegalStateException("ID Token Google kosong. Cek SHA-1 & Web Client ID Firebase."))
 
-            val credential = result.credential
-            if (credential !is CustomCredential ||
-                credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
-            ) {
-                return Result.failure(IllegalStateException("Tipe kredensial Google tidak dikenali."))
+            val firebaseCred = GoogleAuthProvider.getCredential(idToken, null)
+            val authResult = withTimeout(15_000L) {
+                FirebaseAuth.getInstance().signInWithCredential(firebaseCred).await()
             }
-
-            val googleCred = GoogleIdTokenCredential.createFrom(credential.data)
-            val firebaseCred = GoogleAuthProvider.getCredential(googleCred.idToken, null)
-            val authResult = FirebaseAuth.getInstance().signInWithCredential(firebaseCred).await()
             val firebaseUser = authResult.user
-                ?: return Result.failure(IllegalStateException("Gagal mendapatkan data pengguna Google."))
+                ?: return Result.failure(IllegalStateException("Gagal mendapatkan data pengguna dari Firebase Auth."))
 
             val baseProfile = UserProfile(
                 uid = firebaseUser.uid,
-                displayName = firebaseUser.displayName ?: googleCred.displayName ?: "",
-                email = firebaseUser.email ?: googleCred.id,
-                photoUrl = firebaseUser.photoUrl?.toString() ?: googleCred.profilePictureUri?.toString(),
+                displayName = firebaseUser.displayName ?: account.displayName ?: "",
+                email = firebaseUser.email ?: account.email ?: "",
+                photoUrl = firebaseUser.photoUrl?.toString() ?: account.photoUrl?.toString(),
                 isGoogleSignedIn = true
             )
             saveCachedProfile(baseProfile)
 
-            // Sync profil & workout dari Firestore
-            syncAllOnSignIn(baseProfile)
+            // Sinkronkan Firestore dengan timeout supaya UI tidak pernah nge-hang
+            val syncResult = withTimeoutOrNull(12_000L) {
+                syncAllOnSignIn(baseProfile)
+            }
+            if (syncResult == null) {
+                _syncMessage.value = "Login berhasil! Sinkronisasi Cloud tertunda (cek koneksi)."
+            }
             Result.success(_userProfile.value)
-        } catch (e: GetCredentialCancellationException) {
-            Result.failure(Exception("Login Google dibatalkan."))
+        } catch (e: ApiException) {
+            val msg = when (e.statusCode) {
+                GoogleSignInStatusCodes.SIGN_IN_CANCELLED, 16 -> "Login Google dibatalkan."
+                GoogleSignInStatusCodes.SIGN_IN_CURRENTLY_IN_PROGRESS -> "Proses login Google sedang berjalan, coba lagi."
+                10 -> "Konfigurasi SHA-1 / OAuth Client di Firebase belum cocok (Code 10)."
+                12500 -> "Login Google gagal (Code 12500). Pastikan Google Play Services aktif & support email terisi di Firebase."
+                7 -> "Koneksi internet bermasalah saat login Google."
+                else -> "Login Google gagal (Code ${e.statusCode}): ${e.localizedMessage ?: "error"}"
+            }
+            Result.failure(Exception(msg))
         } catch (e: Exception) {
             Result.failure(Exception(e.localizedMessage ?: "Gagal login dengan akun Google."))
         }
@@ -174,9 +193,10 @@ class FirebaseSyncManager @Inject constructor(
             ?: return@withContext Result.failure(IllegalStateException("Belum login Google"))
 
         try {
-            val db = FirebaseFirestore.getInstance()
-            val userDocRef = db.collection("users").document(uid)
-            val userSnap = userDocRef.get().await()
+            withTimeout(15_000L) {
+                val db = FirebaseFirestore.getInstance()
+                val userDocRef = db.collection("users").document(uid)
+                val userSnap = userDocRef.get().await()
 
             val cloudCustomName = userSnap.getString("customDisplayName")?.takeIf { it.isNotBlank() }
             val resolvedName = cloudCustomName ?: current.displayName.ifBlank {
@@ -233,9 +253,11 @@ class FirebaseSyncManager @Inject constructor(
                 }
             }
 
-            val status = "Tersinkron ke Cloud (${cloudSnaps.size()} riwayat)"
-            _syncMessage.value = status
-            Result.success(status)
+                val status = "Tersinkron ke Cloud (${cloudSnaps.size()} riwayat)"
+                _syncMessage.value = status
+                status
+            }
+            Result.success(_syncMessage.value ?: "Tersinkron ke Cloud")
         } catch (e: Exception) {
             val err = "Gagal sinkronisasi cloud: ${e.localizedMessage ?: "cek koneksi"}"
             _syncMessage.value = err
@@ -312,7 +334,12 @@ class FirebaseSyncManager @Inject constructor(
 
     suspend fun signOut() {
         try {
-            CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
+            val webClientId = resolveWebClientId()
+            if (webClientId.isNotBlank()) {
+                withTimeoutOrNull(2_000L) {
+                    GoogleSignIn.getClient(context, buildGoogleSignInOptions(webClientId)).signOut().await()
+                }
+            }
         } catch (_: Exception) {
         }
         if (FirebaseApp.getApps(context).isNotEmpty()) {
