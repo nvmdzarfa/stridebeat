@@ -7,6 +7,9 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Debug APK
@@ -36,14 +39,32 @@ jobs:
       - name: Build Debug APK with Gradle
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Rename APK to StrideBeat-v0.0.5.apk
+      - name: Prepare APK Output
         run: |
           mkdir -p release-output
           cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.0.5.apk
 
-      - name: Upload StrideBeat-v0.0.5 Artifact
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: StrideBeat-v0.0.5
           path: release-output/StrideBeat-v0.0.5.apk
           retention-days: 30
+
+      - name: Publish to GitHub Releases
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.0.5
+          name: StrideBeat v0.0.5
+          body: |
+            ### 🏃 StrideBeat v0.0.5 Release
+            
+            Unduh file `.apk` di bawah dan install langsung di perangkat Android kamu:
+            - **Pemutaran Audio Asli**: Menggunakan native audio stream MP4/AAC langsung ke perangkat.
+            - **Bebas Template Dummy**: Seluruh template daftar lagu bawaan telah dibersihkan.
+            - **Pencarian Musik Responsif**: Temukan lagu favorit dari cloud secara instan.
+            - **Lockscreen & Background Player**: Kontrol pemutaran, durasi lagu, dan timeline berfungsi penuh.
+          files: release-output/StrideBeat-v0.0.5.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
