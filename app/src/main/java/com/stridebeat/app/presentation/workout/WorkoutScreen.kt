@@ -314,7 +314,7 @@ fun WorkoutScreen(
 
                         Column {
                             Text(
-                                text = currentTrack?.title ?: "Pilih Lagu Workout",
+                                text = currentTrack?.title ?: "Cari Lagu Olahraga",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextPrimaryDark,
                                 fontWeight = FontWeight.Bold,
@@ -322,7 +322,7 @@ fun WorkoutScreen(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "${currentTrack?.artist ?: "StrideBeat"} • Ketuk untuk cari lagu",
+                                text = if (currentTrack != null) "${currentTrack.artist} • Ketuk untuk ganti lagu" else "Ketuk untuk cari & putar lagu favoritmu",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = TextSecondaryDark,
                                 maxLines = 1
@@ -331,7 +331,13 @@ fun WorkoutScreen(
                     }
 
                     FilledIconButton(
-                        onClick = { musicViewModel.togglePlayPause() },
+                        onClick = {
+                            if (currentTrack != null) {
+                                musicViewModel.togglePlayPause()
+                            } else {
+                                showMusicSheet = true
+                            }
+                        },
                         modifier = Modifier.size(42.dp),
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = SportPrimary

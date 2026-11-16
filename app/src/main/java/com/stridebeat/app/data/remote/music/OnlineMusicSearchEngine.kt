@@ -10,124 +10,145 @@ import java.net.URL
 import java.net.URLEncoder
 
 /**
- * Mesin pencarian musik online live untuk lagu penuh (Full Song Playback).
- * Mengutamakan pencarian audio YouTube sehingga lagu diputar secara FULL 100%
- * dari awal sampai habis tanpa batas 30 detik preview dan tanpa butuh akun berbayar.
+ * Mesin pencarian musik online live yang menghasilkan URL stream audio langsung
+ * (.mp4 AAC 320kbps dari JioSaavn CDN & .m4a dari Apple Music)
+ * yang dapat diputar 100% lancar oleh Android MediaPlayer.
  */
 object OnlineMusicSearchEngine {
 
     suspend fun searchTracks(query: String): List<Track> = withContext(Dispatchers.IO) {
-        if (query.isBlank()) return@withContext emptyList()
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) return@withContext emptyList()
 
-        // 1. Prioritaskan pencarian YouTube untuk mendapatkan lagu FULL 100%
-        val ytTracks = searchYouTube(query)
-        if (ytTracks.isNotEmpty()) {
-            return@withContext ytTracks
+        val results = mutableListOf<Track>()
+        val seenSignatures = mutableSetOf<String>()
+
+        // 1. Prioritaskan JioSaavn untuk full 320kbps MP4/AAC streams
+        val saavnTracks = searchJioSaavn(trimmed)
+        for (track in saavnTracks) {
+            val sig = (track.title + "_" + track.artist).lowercase()
+            if (seenSignatures.add(sig)) {
+                results.add(track)
+            }
         }
 
-        // 2. Fallback ke Apple Music jika koneksi YouTube terhambat
-        return@withContext searchAppleMusic(query)
-    }
-
-    private fun searchYouTube(query: String): List<Track> {
-        return try {
-            val encodedQuery = URLEncoder.encode(query.trim() + " audio", "UTF-8")
-            val url = URL("https://www.youtube.com/results?search_query=$encodedQuery")
-            val connection = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 7000
-                readTimeout = 7000
-                setRequestProperty(
-                    "User-Agent",
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                )
-                setRequestProperty("Accept-Language", "en-US,en;q=0.9")
-            }
-
-            if (connection.responseCode == 200) {
-                val html = connection.inputStream.bufferedReader().use { it.readText() }
-                parseYouTubeHtml(html)
-            } else {
-                emptyList()
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            emptyList()
-        }
-    }
-
-    private fun parseYouTubeHtml(html: String): List<Track> {
-        val list = mutableListOf<Track>()
-        try {
-            val videoRendererRegex = Regex(
-                """"videoId":"([a-zA-Z0-9_-]{11})".*?"title":\{"runs":\[\{"text":"(.*?)"\}""",
-                RegexOption.DOT_MATCHES_ALL
-            )
-            val matches = videoRendererRegex.findAll(html).take(20).toList()
-            val seenIds = mutableSetOf<String>()
-
-            for (m in matches) {
-                val videoId = m.groupValues[1]
-                val rawTitle = m.groupValues[2]
-
-                if (videoId.isNotBlank() && rawTitle.isNotBlank() && seenIds.add(videoId)) {
-                    val cleanTitle = rawTitle
-                        .replace(Regex("""(?i)\((?:official\s*(?:audio|video|music\s*video|lyric\s*video)?|audio|lyrics)\)"""), "")
-                        .replace(Regex("""(?i)\[(?:official\s*(?:audio|video|music\s*video|lyric\s*video)?|audio|lyrics)\]"""), "")
-                        .replace("""\u0026""", "&")
-                        .replace("&amp;", "&")
-                        .replace("""\"""", "\"")
-                        .trim()
-
-                    val (artist, songTitle) = if (cleanTitle.contains(" - ")) {
-                        val parts = cleanTitle.split(" - ", limit = 2)
-                        Pair(parts[0].trim(), parts[1].trim())
-                    } else {
-                        Pair("YouTube Music", cleanTitle)
-                    }
-
-                    list.add(
-                        Track(
-                            id = "yt_$videoId",
-                            isrc = null,
-                            title = songTitle,
-                            artist = artist,
-                            album = "Lagu Penuh (Full Audio)",
-                            durationMs = 210000L,
-                            coverUrl = "https://img.youtube.com/vi/$videoId/hqdefault.jpg",
-                            audioUrl = "youtube:$videoId",
-                            platformIds = mapOf(
-                                MusicSource.YOUTUBE_MUSIC to videoId,
-                                MusicSource.SPOTIFY to "sp_$videoId"
-                            )
-                        )
-                    )
+        // 2. Jika hasil Saavn sedikit (< 3), tambahkan iTunes untuk kelengkapan katalog
+        if (results.size < 8) {
+            val appleTracks = searchAppleMusic(trimmed)
+            for (track in appleTracks) {
+                val sig = (track.title + "_" + track.artist).lowercase()
+                if (seenSignatures.add(sig)) {
+                    results.add(track)
                 }
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
+        }
+
+        return@withContext results
+    }
+
+    private fun searchJioSaavn(query: String): List<Track> {
+        val list = mutableListOf<Track>()
+        val endpoints = listOf(
+            "https://saavn.sumit.co/api/search/songs?query=",
+            "https://saavn.me/search/songs?query="
+        )
+
+        for (base in endpoints) {
+            try {
+                val encoded = URLEncoder.encode(query, "UTF-8")
+                val url = URL(base + encoded)
+                val connection = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 6000
+                    readTimeout = 6000
+                    setRequestProperty("User-Agent", "Mozilla/5.0")
+                    setRequestProperty("Accept", "application/json")
+                }
+
+                if (connection.responseCode == 200) {
+                    val body = connection.inputStream.bufferedReader().use { it.readText() }
+                    val json = JSONObject(body)
+                    val data = json.optJSONObject("data") ?: continue
+                    val array = data.optJSONArray("results") ?: continue
+
+                    for (i in 0 until array.length()) {
+                        val item = array.optJSONObject(i) ?: continue
+                        val id = item.optString("id")
+                        val rawTitle = item.optString("name")
+                        val duration = item.optInt("duration", 180) * 1000L
+
+                        var artist = "Artis Musik"
+                        val artistsObj = item.optJSONObject("artists")
+                        val primaryArtists = artistsObj?.optJSONArray("primary")
+                        if (primaryArtists != null && primaryArtists.length() > 0) {
+                            artist = primaryArtists.optJSONObject(0)?.optString("name") ?: artist
+                        }
+
+                        val albumObj = item.optJSONObject("album")
+                        val album = albumObj?.optString("name") ?: "Single"
+
+                        var coverUrl = ""
+                        val imgArray = item.optJSONArray("image")
+                        if (imgArray != null && imgArray.length() > 0) {
+                            coverUrl = imgArray.optJSONObject(imgArray.length() - 1)?.optString("url") ?: ""
+                        }
+
+                        var audioUrl = ""
+                        val dlArray = item.optJSONArray("downloadUrl")
+                        if (dlArray != null && dlArray.length() > 0) {
+                            audioUrl = dlArray.optJSONObject(dlArray.length() - 1)?.optString("url") ?: ""
+                        }
+
+                        if (audioUrl.isNotBlank() && rawTitle.isNotBlank()) {
+                            val cleanTitle = cleanHtmlEntities(rawTitle)
+                            list.add(
+                                Track(
+                                    id = "saavn_$id",
+                                    isrc = null,
+                                    title = cleanTitle,
+                                    artist = cleanHtmlEntities(artist),
+                                    album = cleanHtmlEntities(album),
+                                    durationMs = duration,
+                                    coverUrl = coverUrl,
+                                    audioUrl = audioUrl,
+                                    platformIds = mapOf(
+                                        MusicSource.YOUTUBE_MUSIC to id,
+                                        MusicSource.SPOTIFY to id
+                                    )
+                                )
+                            )
+                        }
+                    }
+
+                    if (list.isNotEmpty()) {
+                        break
+                    }
+                }
+            } catch (e: Exception) {
+                continue
+            }
         }
         return list
     }
 
     private fun searchAppleMusic(query: String): List<Track> {
-        return try {
-            val encodedQuery = URLEncoder.encode(query.trim(), "UTF-8")
-            val urlString = "https://itunes.apple.com/search?term=$encodedQuery&media=music&entity=song&limit=25"
+        val list = mutableListOf<Track>()
+        try {
+            val encodedQuery = URLEncoder.encode(query, "UTF-8")
+            val urlString = "https://itunes.apple.com/search?term=$encodedQuery&media=music&entity=song&limit=15"
             val url = URL(urlString)
             val connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
-                connectTimeout = 7000
-                readTimeout = 7000
+                connectTimeout = 6000
+                readTimeout = 6000
                 setRequestProperty("Accept", "application/json")
-                setRequestProperty("User-Agent", "StrideBeat-Android/1.0")
+                setRequestProperty("User-Agent", "Mozilla/5.0")
             }
 
             if (connection.responseCode == 200) {
                 val jsonString = connection.inputStream.bufferedReader().use { it.readText() }
                 val root = JSONObject(jsonString)
                 val results = root.optJSONArray("results") ?: return emptyList()
-                val list = mutableListOf<Track>()
 
                 for (i in 0 until results.length()) {
                     val item = results.optJSONObject(i) ?: continue
@@ -143,11 +164,11 @@ object OnlineMusicSearchEngine {
 
                     list.add(
                         Track(
-                            id = "online_$trackId",
+                            id = "apple_$trackId",
                             isrc = null,
-                            title = title,
-                            artist = artist,
-                            album = album,
+                            title = cleanHtmlEntities(title),
+                            artist = cleanHtmlEntities(artist),
+                            album = cleanHtmlEntities(album),
                             durationMs = durationMs,
                             coverUrl = artworkUrl,
                             audioUrl = previewUrl,
@@ -158,13 +179,20 @@ object OnlineMusicSearchEngine {
                         )
                     )
                 }
-                list
-            } else {
-                emptyList()
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            emptyList()
         }
+        return list
+    }
+
+    private fun cleanHtmlEntities(text: String): String {
+        return text
+            .replace("&quot;", "\"")
+            .replace("&#039;", "'")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .trim()
     }
 }

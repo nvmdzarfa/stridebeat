@@ -22,28 +22,25 @@ import com.stridebeat.app.domain.model.MusicSource
 import com.stridebeat.app.domain.model.Track
 
 /**
- * Service pemutar musik latar belakang dengan dukungan ganda:
- * 1. YouTubeBackgroundPlayer (Memutar lagu YouTube secara FULL 100% dari awal sampai habis)
- * 2. Native MediaPlayer (Memutar file audio stream langsung)
- * Terintegrasi penuh dengan MediaSessionCompat & lockscreen controller Android.
+ * Service pemutar musik latar belakang menggunakan Android Native MediaPlayer.
+ * Memutar langsung stream audio HTTPS (MP4 AAC 320kbps dari JioSaavn & M4A dari Apple Music)
+ * secara lancar 100% tanpa batas, terintegrasi penuh dengan MediaSessionCompat & lockscreen Android.
  */
 class MusicPlaybackService : Service() {
 
     private lateinit var mediaSession: MediaSessionCompat
     private var mediaPlayer: MediaPlayer? = null
-    private var youTubePlayer: YouTubeBackgroundPlayer? = null
 
     private var currentPlayingUrl: String? = null
-    private var isUsingYouTube = false
     private var currentTitle: String = "StrideBeat Music"
     private var currentArtist: String = "Olahraga & Ritme"
-    private var currentSource: String = "YOUTUBE_MUSIC"
+    private var isPlayingState: Boolean = false
+    private var currentDurationMs: Long = 0L
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
         initMediaPlayer()
-        initYouTubePlayer()
 
         mediaSession = MediaSessionCompat(this, "StrideBeatMediaSession").apply {
             setFlags(
@@ -54,12 +51,10 @@ class MusicPlaybackService : Service() {
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() {
                     resumeAudio()
-                    updateMediaSession(currentTitle, currentArtist, true)
                 }
 
                 override fun onPause() {
                     pauseAudio()
-                    updateMediaSession(currentTitle, currentArtist, false)
                 }
 
                 override fun onStop() {
@@ -73,31 +68,18 @@ class MusicPlaybackService : Service() {
                 override fun onSkipToPrevious() {
                     onSkipPreviousListener?.invoke()
                 }
+
+                override fun onSeekTo(pos: Long) {
+                    try {
+                        mediaPlayer?.seekTo(pos.toInt())
+                        updateMediaSession(currentTitle, currentArtist, isPlayingState, pos, currentDurationMs)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
             })
 
             isActive = true
-        }
-    }
-
-    private fun initYouTubePlayer() {
-        if (youTubePlayer == null) {
-            youTubePlayer = YouTubeBackgroundPlayer(
-                context = this,
-                onStateChanged = { isPlaying ->
-                    updateMediaSession(currentTitle, currentArtist, isPlaying)
-                    val notification = buildMediaNotification(currentTitle, currentArtist, isPlaying, currentSource)
-                    val manager = getSystemService(NotificationManager::class.java)
-                    manager?.notify(NOTIFICATION_ID, notification)
-                },
-                onTrackEnded = {
-                    // Otomatis lompat ke lagu berikutnya agar ritme olahraga terus jalan
-                    onSkipNextListener?.invoke()
-                },
-                onError = {
-                    // Jika error pada video tertentu, lompat ke lagu berikutnya
-                    onSkipNextListener?.invoke()
-                }
-            )
         }
     }
 
@@ -111,12 +93,30 @@ class MusicPlaybackService : Service() {
                         .build()
                 )
                 setOnPreparedListener { mp ->
-                    mp.start()
+                    try {
+                        mp.start()
+                        isPlayingState = true
+                        currentDurationMs = mp.duration.toLong().coerceAtLeast(0L)
+                        updateMediaSession(
+                            title = currentTitle,
+                            artist = currentArtist,
+                            isPlaying = true,
+                            positionMs = 0L,
+                            durationMs = currentDurationMs
+                        )
+                        updateNotification(isPlaying = true)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }
                 setOnCompletionListener {
+                    isPlayingState = false
+                    updateMediaSession(currentTitle, currentArtist, false, currentDurationMs, currentDurationMs)
+                    updateNotification(isPlaying = false)
                     onSkipNextListener?.invoke()
                 }
                 setOnErrorListener { _, _, _ ->
+                    isPlayingState = false
                     true
                 }
             }
@@ -126,73 +126,47 @@ class MusicPlaybackService : Service() {
     private fun playAudio(url: String?) {
         if (url.isNullOrBlank()) return
 
-        if (url.startsWith("youtube:")) {
-            // Mode YouTube Full Song
-            val videoId = url.removePrefix("youtube:")
-            isUsingYouTube = true
-
-            // Matikan MediaPlayer jika sedang berbunyi
-            try {
-                if (mediaPlayer?.isPlaying == true) {
-                    mediaPlayer?.pause()
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-
-            initYouTubePlayer()
-            youTubePlayer?.play(videoId)
+        initMediaPlayer()
+        if (currentPlayingUrl != url) {
             currentPlayingUrl = url
-        } else {
-            // Mode Stream Audio Biasa (MediaPlayer)
-            isUsingYouTube = false
-            youTubePlayer?.pause()
-
-            initMediaPlayer()
-            if (currentPlayingUrl != url) {
-                currentPlayingUrl = url
+            try {
+                mediaPlayer?.reset()
+                mediaPlayer?.setDataSource(url)
+                mediaPlayer?.prepareAsync()
+            } catch (e: Exception) {
                 try {
-                    mediaPlayer?.reset()
+                    mediaPlayer?.release()
+                    mediaPlayer = null
+                    initMediaPlayer()
                     mediaPlayer?.setDataSource(url)
                     mediaPlayer?.prepareAsync()
-                } catch (e: Exception) {
-                    try {
-                        mediaPlayer?.release()
-                        mediaPlayer = null
-                        initMediaPlayer()
-                        mediaPlayer?.setDataSource(url)
-                        mediaPlayer?.prepareAsync()
-                    } catch (e2: Exception) {
-                        e2.printStackTrace()
-                    }
+                } catch (e2: Exception) {
+                    e2.printStackTrace()
                 }
-            } else {
-                resumeAudio()
             }
+        } else {
+            resumeAudio()
         }
     }
 
     private fun resumeAudio() {
-        if (isUsingYouTube) {
-            youTubePlayer?.resume()
-        } else {
-            try {
-                if (mediaPlayer != null && !mediaPlayer!!.isPlaying) {
-                    mediaPlayer?.start()
-                }
-            } catch (e: Exception) {
-                currentPlayingUrl?.let { url ->
-                    currentPlayingUrl = null
-                    playAudio(url)
-                }
+        try {
+            if (mediaPlayer != null && !mediaPlayer!!.isPlaying) {
+                mediaPlayer?.start()
+                isPlayingState = true
+                val pos = mediaPlayer?.currentPosition?.toLong() ?: 0L
+                updateMediaSession(currentTitle, currentArtist, true, pos, currentDurationMs)
+                updateNotification(isPlaying = true)
+            }
+        } catch (e: Exception) {
+            currentPlayingUrl?.let { url ->
+                currentPlayingUrl = null
+                playAudio(url)
             }
         }
     }
 
     private fun pauseAudio() {
-        if (isUsingYouTube) {
-            youTubePlayer?.pause()
-        }
         try {
             if (mediaPlayer != null && mediaPlayer!!.isPlaying) {
                 mediaPlayer?.pause()
@@ -200,12 +174,13 @@ class MusicPlaybackService : Service() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+        isPlayingState = false
+        val pos = try { mediaPlayer?.currentPosition?.toLong() ?: 0L } catch (_: Exception) { 0L }
+        updateMediaSession(currentTitle, currentArtist, false, pos, currentDurationMs)
+        updateNotification(isPlaying = false)
     }
 
     private fun stopAudio() {
-        if (isUsingYouTube) {
-            youTubePlayer?.pause()
-        }
         try {
             mediaPlayer?.stop()
             mediaPlayer?.reset()
@@ -213,13 +188,24 @@ class MusicPlaybackService : Service() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+        isPlayingState = false
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val action = intent?.action
+        if (action != null) {
+            when (action) {
+                ACTION_PLAY -> resumeAudio()
+                ACTION_PAUSE -> pauseAudio()
+                ACTION_SKIP_NEXT -> onSkipNextListener?.invoke()
+                ACTION_SKIP_PREVIOUS -> onSkipPreviousListener?.invoke()
+            }
+            return START_NOT_STICKY
+        }
+
         currentTitle = intent?.getStringExtra(EXTRA_TRACK_TITLE) ?: "StrideBeat Music"
         currentArtist = intent?.getStringExtra(EXTRA_TRACK_ARTIST) ?: "Olahraga & Ritme"
         val isPlaying = intent?.getBooleanExtra(EXTRA_IS_PLAYING, true) ?: true
-        currentSource = intent?.getStringExtra(EXTRA_SOURCE) ?: "YOUTUBE_MUSIC"
         val audioUrl = intent?.getStringExtra(EXTRA_AUDIO_URL)
 
         if (isPlaying) {
@@ -233,18 +219,26 @@ class MusicPlaybackService : Service() {
         }
 
         updateMediaSession(currentTitle, currentArtist, isPlaying)
-        val notification = buildMediaNotification(currentTitle, currentArtist, isPlaying, currentSource)
+        val notification = buildMediaNotification(currentTitle, currentArtist, isPlaying)
         startForeground(NOTIFICATION_ID, notification)
 
         return START_NOT_STICKY
     }
 
-    private fun updateMediaSession(title: String, artist: String, isPlaying: Boolean) {
-        val metadata = MediaMetadataCompat.Builder()
+    private fun updateMediaSession(
+        title: String,
+        artist: String,
+        isPlaying: Boolean,
+        positionMs: Long = PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN,
+        durationMs: Long = 0L
+    ) {
+        val metadataBuilder = MediaMetadataCompat.Builder()
             .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
             .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, artist)
-            .build()
-        mediaSession.setMetadata(metadata)
+        if (durationMs > 0) {
+            metadataBuilder.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationMs)
+        }
+        mediaSession.setMetadata(metadataBuilder.build())
 
         val state = if (isPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
         val playbackState = PlaybackStateCompat.Builder()
@@ -252,18 +246,24 @@ class MusicPlaybackService : Service() {
                 PlaybackStateCompat.ACTION_PLAY or
                         PlaybackStateCompat.ACTION_PAUSE or
                         PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
-                        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+                        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                        PlaybackStateCompat.ACTION_SEEK_TO
             )
-            .setState(state, PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1.0f)
+            .setState(state, positionMs, 1.0f)
             .build()
         mediaSession.setPlaybackState(playbackState)
+    }
+
+    private fun updateNotification(isPlaying: Boolean) {
+        val notification = buildMediaNotification(currentTitle, currentArtist, isPlaying)
+        val manager = getSystemService(NotificationManager::class.java)
+        manager?.notify(NOTIFICATION_ID, notification)
     }
 
     private fun buildMediaNotification(
         title: String,
         artist: String,
-        isPlaying: Boolean,
-        source: String
+        isPlaying: Boolean
     ): Notification {
         val launchIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -273,16 +273,43 @@ class MusicPlaybackService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val sourceName = if (source == "SPOTIFY") "Spotify" else "YouTube Music (Full Song)"
+        val playPauseIntent = Intent(this, MusicPlaybackService::class.java).apply {
+            action = if (isPlaying) ACTION_PAUSE else ACTION_PLAY
+        }
+        val playPausePending = PendingIntent.getService(
+            this, 1, playPauseIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val playPauseIcon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+        val playPauseTitle = if (isPlaying) "Pause" else "Play"
+
+        val skipNextIntent = Intent(this, MusicPlaybackService::class.java).apply {
+            action = ACTION_SKIP_NEXT
+        }
+        val skipNextPending = PendingIntent.getService(
+            this, 2, skipNextIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val skipPrevIntent = Intent(this, MusicPlaybackService::class.java).apply {
+            action = ACTION_SKIP_PREVIOUS
+        }
+        val skipPrevPending = PendingIntent.getService(
+            this, 3, skipPrevIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
-            .setContentText("$artist • $sourceName")
+            .setContentText(artist)
             .setSubText("StrideBeat Workout Music")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(contentPending)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .addAction(android.R.drawable.ic_media_previous, "Previous", skipPrevPending)
+            .addAction(playPauseIcon, playPauseTitle, playPausePending)
+            .addAction(android.R.drawable.ic_media_next, "Next", skipNextPending)
             .setStyle(
                 MediaStyle()
                     .setMediaSession(mediaSession.sessionToken)
@@ -293,12 +320,9 @@ class MusicPlaybackService : Service() {
 
     override fun onDestroy() {
         stopAudio()
-        youTubePlayer?.release()
-        youTubePlayer = null
         mediaPlayer?.release()
         mediaPlayer = null
         mediaSession.release()
-        stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
     }
 
@@ -308,31 +332,41 @@ class MusicPlaybackService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Pemutar Musik Olahraga",
+                "StrideBeat Music Playback",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Notifikasi pemutar musik selama sesi olahraga"
+                description = "Kontrol audio musik saat sesi olahraga"
+                setShowBadge(false)
             }
             val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+            manager?.createNotificationChannel(channel)
         }
     }
 
     companion object {
         const val CHANNEL_ID = "stridebeat_music_channel"
-        const val NOTIFICATION_ID = 2001
+        const val NOTIFICATION_ID = 2002
 
-        const val EXTRA_TRACK_TITLE = "EXTRA_TRACK_TITLE"
-        const val EXTRA_TRACK_ARTIST = "EXTRA_TRACK_ARTIST"
-        const val EXTRA_IS_PLAYING = "EXTRA_IS_PLAYING"
-        const val EXTRA_SOURCE = "EXTRA_SOURCE"
-        const val EXTRA_AUDIO_URL = "EXTRA_AUDIO_URL"
+        const val EXTRA_TRACK_TITLE = "extra_track_title"
+        const val EXTRA_TRACK_ARTIST = "extra_track_artist"
+        const val EXTRA_IS_PLAYING = "extra_is_playing"
+        const val EXTRA_SOURCE = "extra_source"
+        const val EXTRA_AUDIO_URL = "extra_audio_url"
+
+        const val ACTION_PLAY = "com.stridebeat.app.action.PLAY"
+        const val ACTION_PAUSE = "com.stridebeat.app.action.PAUSE"
+        const val ACTION_SKIP_NEXT = "com.stridebeat.app.action.SKIP_NEXT"
+        const val ACTION_SKIP_PREVIOUS = "com.stridebeat.app.action.SKIP_PREVIOUS"
 
         var onSkipNextListener: (() -> Unit)? = null
         var onSkipPreviousListener: (() -> Unit)? = null
 
-        fun update(context: Context, track: Track?, isPlaying: Boolean, source: MusicSource) {
-            if (track == null) return
+        fun update(
+            context: Context,
+            track: Track,
+            isPlaying: Boolean,
+            source: MusicSource
+        ) {
             val intent = Intent(context, MusicPlaybackService::class.java).apply {
                 putExtra(EXTRA_TRACK_TITLE, track.title)
                 putExtra(EXTRA_TRACK_ARTIST, track.artist)
@@ -345,11 +379,6 @@ class MusicPlaybackService : Service() {
             } else {
                 context.startService(intent)
             }
-        }
-
-        fun stop(context: Context) {
-            val intent = Intent(context, MusicPlaybackService::class.java)
-            context.stopService(intent)
         }
     }
 }

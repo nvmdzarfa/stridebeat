@@ -16,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.stridebeat.app.domain.model.MusicSource
@@ -48,7 +47,16 @@ fun MusicPlayerBottomSheet(
 ) {
     var searchQuery by remember { mutableStateOf("") }
 
-    // Trigger search dengan debounce 350ms agar tidak spam API saat mengetik cepat
+    val quickChips = listOf(
+        "Rex Orange County",
+        "The Weeknd",
+        "Phonk Workout",
+        "Kanye West",
+        "Running Beats",
+        "Pop Hits"
+    )
+
+    // Debounce pencarian 350ms
     LaunchedEffect(searchQuery) {
         if (searchQuery.isNotBlank()) {
             delay(350)
@@ -73,7 +81,7 @@ fun MusicPlayerBottomSheet(
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 1. Search Bar Luas & Modern di bagian atas
+            // 1. Search Bar Luas & Responsif
             item {
                 OutlinedTextField(
                     value = searchQuery,
@@ -93,7 +101,7 @@ fun MusicPlayerBottomSheet(
                     ),
                     placeholder = {
                         Text(
-                            text = "Cari lagu YouTube full: The Weeknd, Kanye, Phonk...",
+                            text = "Ketik judul lagu atau artis favorit...",
                             fontSize = 13.sp,
                             color = TextMutedDark
                         )
@@ -129,7 +137,7 @@ fun MusicPlayerBottomSheet(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 24.dp),
+                                .padding(vertical = 28.dp),
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -140,7 +148,7 @@ fun MusicPlayerBottomSheet(
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = "Mencari lagu asli di cloud...",
+                                text = "Mencari musik online...",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextSecondaryDark
                             )
@@ -151,7 +159,7 @@ fun MusicPlayerBottomSheet(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 24.dp),
+                                .padding(vertical = 28.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
@@ -170,7 +178,7 @@ fun MusicPlayerBottomSheet(
                 } else {
                     item {
                         Text(
-                            text = "HASIL PENCARIAN LAGU ASLI (${searchResults.size})",
+                            text = "HASIL PENCARIAN (${searchResults.size})",
                             style = MaterialTheme.typography.labelSmall,
                             color = SportPrimary,
                             fontWeight = FontWeight.Bold,
@@ -231,7 +239,7 @@ fun MusicPlayerBottomSheet(
                                             maxLines = 1
                                         )
                                         Text(
-                                            text = "${track.artist} • Lagu Penuh (Full Song)",
+                                            text = "${track.artist} • ${track.album ?: "Audio Asli"}",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = TextSecondaryDark,
                                             maxLines = 1
@@ -244,8 +252,8 @@ fun MusicPlayerBottomSheet(
                                     color = SportPrimary.copy(alpha = 0.15f)
                                 ) {
                                     Text(
-                                        text = "Putar Full",
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        text = if (isCurrent && isPlaying) "Memutar" else "Putar",
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = SportPrimary,
                                         fontWeight = FontWeight.Bold
@@ -256,7 +264,8 @@ fun MusicPlayerBottomSheet(
                     }
                 }
             } else {
-                // 2. Tampilan Normal (Now Playing Hero yang Ringkas & Proporsional)
+                // 2. Tampilan Normal Saat Tidak Mengetik Search
+                // Card Now Playing Hero (atau Welcoming Card jika belum ada lagu)
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -264,236 +273,284 @@ fun MusicPlayerBottomSheet(
                         colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated),
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
-                            if (activeSource == MusicSource.SPOTIFY) SpotifyBrand.copy(alpha = 0.4f) else YouTubeBrand.copy(alpha = 0.4f)
+                            if (currentTrack != null) SportPrimary.copy(alpha = 0.4f) else DarkBorder
                         )
                     ) {
                         Column(
                             modifier = Modifier.padding(18.dp),
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            // Baris Info Lagu & Cover
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(14.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(
-                                            if (activeSource == MusicSource.SPOTIFY) SpotifyBrand.copy(alpha = 0.25f) else YouTubeBrand.copy(alpha = 0.25f)
-                                        ),
-                                    contentAlignment = Alignment.Center
+                            if (currentTrack != null) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = if (isPlaying) Icons.Default.GraphicEq else Icons.Default.MusicNote,
-                                        contentDescription = null,
-                                        tint = if (activeSource == MusicSource.SPOTIFY) SpotifyBrand else YouTubeBrand,
-                                        modifier = Modifier.size(28.dp)
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(54.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(SportPrimary.copy(alpha = 0.2f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isPlaying) Icons.Default.GraphicEq else Icons.Default.MusicNote,
+                                            contentDescription = null,
+                                            tint = SportPrimary,
+                                            modifier = Modifier.size(26.dp)
+                                        )
+                                    }
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = currentTrack.title,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = TextPrimaryDark,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "${currentTrack.artist} • Diputar Langsung",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = TextSecondaryDark,
+                                            maxLines = 1
+                                        )
+                                    }
                                 }
 
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = currentTrack?.title ?: "Pilih Lagu Workout",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = TextPrimaryDark,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = "${currentTrack?.artist ?: "StrideBeat Audio"} • Putar Langsung di HP",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = TextSecondaryDark,
-                                        maxLines = 1
-                                    )
-                                }
-
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (activeSource == MusicSource.SPOTIFY) SpotifyBrand.copy(alpha = 0.2f) else YouTubeBrand.copy(alpha = 0.2f)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = if (activeSource == MusicSource.SPOTIFY) "Spotify" else "YouTube",
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (activeSource == MusicSource.SPOTIFY) SpotifyBrand else YouTubeBrand,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    IconButton(
+                                        onClick = onSkipPrevious,
+                                        modifier = Modifier.size(42.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.SkipPrevious,
+                                            contentDescription = "Sebelumnya",
+                                            tint = TextPrimaryDark,
+                                            modifier = Modifier.size(26.dp)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(20.dp))
+
+                                    FilledIconButton(
+                                        onClick = onTogglePlayPause,
+                                        modifier = Modifier.size(54.dp),
+                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = SportPrimary
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                            contentDescription = "Play/Pause",
+                                            tint = DarkBackground,
+                                            modifier = Modifier.size(28.dp)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(20.dp))
+
+                                    IconButton(
+                                        onClick = onSkipNext,
+                                        modifier = Modifier.size(42.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.SkipNext,
+                                            contentDescription = "Berikutnya",
+                                            tint = TextPrimaryDark,
+                                            modifier = Modifier.size(26.dp)
+                                        )
+                                    }
                                 }
-                            }
-
-                            // Tombol Media Playback
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                IconButton(
-                                    onClick = onSkipPrevious,
-                                    modifier = Modifier.size(42.dp)
+                            } else {
+                                // Status Belum Ada Lagu Diputar
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.SkipPrevious,
-                                        contentDescription = "Sebelumnya",
-                                        tint = TextPrimaryDark,
-                                        modifier = Modifier.size(26.dp)
-                                    )
-                                }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(50.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(SportPrimary.copy(alpha = 0.15f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.MusicNote,
+                                            contentDescription = null,
+                                            tint = SportPrimary,
+                                            modifier = Modifier.size(26.dp)
+                                        )
+                                    }
 
-                                Spacer(modifier = Modifier.width(20.dp))
-
-                                FilledIconButton(
-                                    onClick = onTogglePlayPause,
-                                    modifier = Modifier.size(54.dp),
-                                    colors = IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = if (activeSource == MusicSource.SPOTIFY) SpotifyBrand else YouTubeBrand
-                                    )
-                                ) {
-                                    Icon(
-                                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                        contentDescription = "Play/Pause",
-                                        tint = TextPrimaryDark,
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.width(20.dp))
-
-                                IconButton(
-                                    onClick = onSkipNext,
-                                    modifier = Modifier.size(42.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.SkipNext,
-                                        contentDescription = "Berikutnya",
-                                        tint = TextPrimaryDark,
-                                        modifier = Modifier.size(26.dp)
-                                    )
+                                    Column {
+                                        Text(
+                                            text = "Belum Ada Lagu Dipilih",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = TextPrimaryDark,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "Gunakan kolom pencarian di atas untuk memutar lagu",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = TextSecondaryDark
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
 
-                // 3. Sumber Musik & Playlist Tabs
+                // 3. Rekomendasi / Saran Pencarian Cepat
                 item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
-                            text = "DAFTAR LAGU OLAHRAGA",
+                            text = "INSPIRASI MUSIK WORKOUT",
                             style = MaterialTheme.typography.labelSmall,
                             color = TextMutedDark,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            // Spotify Pill
-                            Surface(
-                                modifier = Modifier.clickable { onSwitchSource(MusicSource.SPOTIFY) },
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (activeSource == MusicSource.SPOTIFY) SpotifyBrand.copy(alpha = 0.25f) else Color.Transparent,
-                                border = if (activeSource == MusicSource.SPOTIFY) androidx.compose.foundation.BorderStroke(1.dp, SpotifyBrand) else null
-                            ) {
-                                Text(
-                                    text = "Spotify",
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (activeSource == MusicSource.SPOTIFY) SpotifyBrand else TextSecondaryDark,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
 
-                            // YTM Pill
-                            Surface(
-                                modifier = Modifier.clickable { onSwitchSource(MusicSource.YOUTUBE_MUSIC) },
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (activeSource == MusicSource.YOUTUBE_MUSIC) YouTubeBrand.copy(alpha = 0.25f) else Color.Transparent,
-                                border = if (activeSource == MusicSource.YOUTUBE_MUSIC) androidx.compose.foundation.BorderStroke(1.dp, YouTubeBrand) else null
-                            ) {
-                                Text(
-                                    text = "YouTube Music",
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (activeSource == MusicSource.YOUTUBE_MUSIC) YouTubeBrand else TextSecondaryDark,
-                                    fontWeight = FontWeight.Bold
-                                )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            quickChips.take(3).forEach { chip ->
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { searchQuery = chip },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = DarkSurfaceElevated,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
+                                ) {
+                                    Text(
+                                        text = chip,
+                                        modifier = Modifier
+                                            .padding(vertical = 10.dp, horizontal = 4.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = TextPrimaryDark,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            quickChips.drop(3).take(3).forEach { chip ->
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { searchQuery = chip },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = DarkSurfaceElevated,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
+                                ) {
+                                    Text(
+                                        text = chip,
+                                        modifier = Modifier
+                                            .padding(vertical = 10.dp, horizontal = 4.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = TextPrimaryDark,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                // Daftar Lagu Bawaan Playlist
-                items(activePlaylist?.tracks ?: emptyList()) { track ->
-                    val isCurrent = track.id == currentTrack?.id
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onPlayTrack(track) },
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isCurrent) DarkSurfaceElevated else DarkSurface
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (isCurrent) SportPrimary else DarkBorder
+                // 4. Riwayat Lagu yang Baru Diputar (Jika ada)
+                if (playedTracks.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "BARU DIPUTAR (${playedTracks.size})",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextMutedDark,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
                         )
-                    ) {
-                        Row(
+                    }
+
+                    items(playedTracks.reversed()) { pt ->
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .clickable {
+                                    onPlayTrack(
+                                        Track(
+                                            id = pt.trackId,
+                                            isrc = null,
+                                            title = pt.title,
+                                            artist = pt.artist,
+                                            album = "Baru Diputar",
+                                            durationMs = 210000L,
+                                            coverUrl = null,
+                                            audioUrl = null,
+                                            platformIds = emptyMap()
+                                        )
+                                    )
+                                },
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
                         ) {
                             Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                modifier = Modifier.weight(1f)
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(38.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (isCurrent && isPlaying) SportPrimary else DarkSurfaceElevated
-                                        ),
-                                    contentAlignment = Alignment.Center
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    modifier = Modifier.weight(1f)
                                 ) {
                                     Icon(
-                                        imageVector = if (isCurrent && isPlaying) Icons.Default.GraphicEq else Icons.Default.PlayArrow,
+                                        imageVector = Icons.Default.History,
                                         contentDescription = null,
-                                        tint = if (isCurrent && isPlaying) DarkBackground else TextPrimaryDark,
-                                        modifier = Modifier.size(18.dp)
+                                        tint = SportPrimary,
+                                        modifier = Modifier.size(20.dp)
                                     )
+                                    Column {
+                                        Text(
+                                            text = pt.title,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = TextPrimaryDark,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1
+                                        )
+                                        Text(
+                                            text = pt.artist,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = TextSecondaryDark,
+                                            maxLines = 1
+                                        )
+                                    }
                                 }
 
-                                Column {
-                                    Text(
-                                        text = track.title,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = if (isCurrent) SportPrimary else TextPrimaryDark,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1
-                                    )
-                                    Text(
-                                        text = "${track.artist} • ${track.album ?: "Audio Asli"}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = TextSecondaryDark,
-                                        maxLines = 1
-                                    )
-                                }
+                                Text(
+                                    text = "Putar Lagi",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = SportPrimary,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
-
-                            Text(
-                                text = "Putar",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (isCurrent) SportPrimary else TextMutedDark,
-                                fontWeight = FontWeight.Bold
-                            )
                         }
                     }
                 }

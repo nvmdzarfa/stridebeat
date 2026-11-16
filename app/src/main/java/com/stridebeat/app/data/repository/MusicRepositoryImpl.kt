@@ -8,7 +8,6 @@ import com.stridebeat.app.domain.model.Track
 import com.stridebeat.app.domain.model.WorkoutPlaylist
 import com.stridebeat.app.domain.repository.MusicRepository
 import com.stridebeat.app.service.MusicPlaybackService
-import com.stridebeat.app.util.TrackMatchingEngine
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -45,10 +44,11 @@ class MusicRepositoryImpl @Inject constructor(
     private val _playedTracksInSession = MutableStateFlow<List<PlayedTrack>>(emptyList())
     override val playedTracksInSession: StateFlow<List<PlayedTrack>> = _playedTracksInSession.asStateFlow()
 
-    private var currentTrackIndex = 0
+    // Antrean lagu dinamis dari hasil pencarian user (tanpa template dummy)
+    private var currentQueue: List<Track> = emptyList()
+    private var lastSearchResults: List<Track> = emptyList()
 
     init {
-        initializeCuratedPlaylists()
         MusicPlaybackService.onSkipNextListener = {
             CoroutineScope(Dispatchers.Main).launch {
                 skipToNext()
@@ -58,166 +58,6 @@ class MusicRepositoryImpl @Inject constructor(
             CoroutineScope(Dispatchers.Main).launch {
                 skipToPrevious()
             }
-        }
-    }
-
-    private fun initializeCuratedPlaylists() {
-        val runningTracks = listOf(
-            Track(
-                id = "track_run_1",
-                isrc = "USUM71703861",
-                title = "Midnight City",
-                artist = "M83",
-                album = "Hurry Up, We're Dreaming",
-                durationMs = 244000L,
-                coverUrl = "https://img.youtube.com/vi/dX3k_QDnzHE/hqdefault.jpg",
-                audioUrl = "youtube:dX3k_QDnzHE",
-                platformIds = mapOf(
-                    MusicSource.SPOTIFY to "spotify:track:1DoBx4h69vQ62jJvWbZ5j5",
-                    MusicSource.YOUTUBE_MUSIC to "dX3k_QDnzHE"
-                )
-            ),
-            Track(
-                id = "track_run_2",
-                isrc = "USUM71607172",
-                title = "Starboy (feat. Daft Punk)",
-                artist = "The Weeknd",
-                album = "Starboy",
-                durationMs = 230000L,
-                coverUrl = "https://img.youtube.com/vi/Rif-RTvmmss/hqdefault.jpg",
-                audioUrl = "youtube:Rif-RTvmmss",
-                platformIds = mapOf(
-                    MusicSource.SPOTIFY to "spotify:track:7MXVkk9YM5FZ0wWACBRio2",
-                    MusicSource.YOUTUBE_MUSIC to "Rif-RTvmmss"
-                )
-            ),
-            Track(
-                id = "track_run_3",
-                isrc = "FR9W11200123",
-                title = "Run Boy Run",
-                artist = "Woodkid",
-                album = "The Golden Age",
-                durationMs = 213000L,
-                coverUrl = "https://img.youtube.com/vi/lmc2Zzk46vk/hqdefault.jpg",
-                audioUrl = "youtube:lmc2Zzk46vk",
-                platformIds = mapOf(
-                    MusicSource.SPOTIFY to "spotify:track:0Bo5cQoU6hLpZ5a3c2i1O4",
-                    MusicSource.YOUTUBE_MUSIC to "lmc2Zzk46vk"
-                )
-            ),
-            Track(
-                id = "track_run_4",
-                isrc = "USUM70738491",
-                title = "Stronger",
-                artist = "Kanye West",
-                album = "Graduation",
-                durationMs = 311000L,
-                coverUrl = "https://img.youtube.com/vi/PsO6ZnUZI0g/hqdefault.jpg",
-                audioUrl = "youtube:PsO6ZnUZI0g",
-                platformIds = mapOf(
-                    MusicSource.SPOTIFY to "spotify:track:4fzsfWzRhPawzqhXZwn925",
-                    MusicSource.YOUTUBE_MUSIC to "PsO6ZnUZI0g"
-                )
-            ),
-            Track(
-                id = "track_run_5",
-                isrc = "GBARL1300054",
-                title = "Pompeii",
-                artist = "Bastille",
-                album = "Bad Blood",
-                durationMs = 214000L,
-                coverUrl = "https://img.youtube.com/vi/F90Cw4ok-KM/hqdefault.jpg",
-                audioUrl = "youtube:F90Cw4ok-KM",
-                platformIds = mapOf(
-                    MusicSource.SPOTIFY to "spotify:track:3LmpQiJ12G98cu624FNoTJ",
-                    MusicSource.YOUTUBE_MUSIC to "F90Cw4ok-KM"
-                )
-            ),
-            Track(
-                id = "track_run_6",
-                isrc = "SEUM71101032",
-                title = "Levels",
-                artist = "Avicii",
-                album = "Levels - Single",
-                durationMs = 195000L,
-                coverUrl = "https://img.youtube.com/vi/_ovdm2yX4MA/hqdefault.jpg",
-                audioUrl = "youtube:_ovdm2yX4MA",
-                platformIds = mapOf(
-                    MusicSource.SPOTIFY to "spotify:track:levels_avicii",
-                    MusicSource.YOUTUBE_MUSIC to "_ovdm2yX4MA"
-                )
-            )
-        )
-
-        val cardioTracks = listOf(
-            Track(
-                id = "track_cardio_1",
-                isrc = "GBAYE0601477",
-                title = "Can't Stop",
-                artist = "Red Hot Chili Peppers",
-                album = "By the Way",
-                durationMs = 269000L,
-                coverUrl = "https://img.youtube.com/vi/8DyziWtk60w/hqdefault.jpg",
-                audioUrl = "youtube:8DyziWtk60w",
-                platformIds = mapOf(
-                    MusicSource.SPOTIFY to "spotify:track:3ZOEytgrvLwQaqXreDs2Jx",
-                    MusicSource.YOUTUBE_MUSIC to "8DyziWtk60w"
-                )
-            ),
-            Track(
-                id = "track_cardio_2",
-                isrc = "GBUM71029605",
-                title = "Lights",
-                artist = "Ellie Goulding",
-                album = "Bright Lights",
-                durationMs = 244000L,
-                coverUrl = "https://img.youtube.com/vi/0NKUpo_xKyQ/hqdefault.jpg",
-                audioUrl = "youtube:0NKUpo_xKyQ",
-                platformIds = mapOf(
-                    MusicSource.SPOTIFY to "spotify:track:11ozH05lM8vT4vB2B1wN3e",
-                    MusicSource.YOUTUBE_MUSIC to "0NKUpo_xKyQ"
-                )
-            ),
-            Track(
-                id = "track_cardio_3",
-                isrc = "FRZ030000001",
-                title = "One More Time",
-                artist = "Daft Punk",
-                album = "Discovery",
-                durationMs = 320000L,
-                coverUrl = "https://img.youtube.com/vi/FGBhQbmMxH8/hqdefault.jpg",
-                audioUrl = "youtube:FGBhQbmMxH8",
-                platformIds = mapOf(
-                    MusicSource.SPOTIFY to "spotify:track:0DiWol3AO6WpXZgp0goxAV",
-                    MusicSource.YOUTUBE_MUSIC to "FGBhQbmMxH8"
-                )
-            )
-        )
-
-        val playlists = listOf(
-            WorkoutPlaylist(
-                id = "pl_running_1",
-                name = "StrideBeat Running High BPM (160+)",
-                description = "Ritme stabil untuk menjaga pace lari 5'30\" - 6'30\"",
-                source = MusicSource.SPOTIFY,
-                tracks = runningTracks
-            ),
-            WorkoutPlaylist(
-                id = "pl_cardio_2",
-                name = "Power Cardio Beats & Phonk",
-                description = "Dentuman bass bertenaga untuk latihan interval dan tanjakan",
-                source = MusicSource.YOUTUBE_MUSIC,
-                tracks = cardioTracks
-            )
-        )
-
-        _availablePlaylists.value = playlists
-        val defaultPlaylist = playlists.first()
-        _activePlaylist.value = defaultPlaylist
-        if (defaultPlaylist.tracks.isNotEmpty()) {
-            currentTrackIndex = 0
-            _currentTrack.value = defaultPlaylist.tracks.first()
-            _playbackPositionMs.value = 0L
         }
     }
 
@@ -241,34 +81,27 @@ class MusicRepositoryImpl @Inject constructor(
     }
 
     override suspend fun skipToNext() {
-        val playlist = _activePlaylist.value ?: return
-        if (playlist.tracks.isEmpty()) return
+        if (currentQueue.isEmpty()) return
 
-        currentTrackIndex = (currentTrackIndex + 1) % playlist.tracks.size
-        val nextTrack = playlist.tracks[currentTrackIndex]
+        val currentIndex = currentQueue.indexOfFirst { it.id == _currentTrack.value?.id }
+        val nextIndex = if (currentIndex != -1) (currentIndex + 1) % currentQueue.size else 0
+        val nextTrack = currentQueue[nextIndex]
 
-        // Periksa ketersediaan lagu di platform aktif
-        if (!TrackMatchingEngine.hasPlatformSupport(nextTrack, _activeSource.value)) {
-            // Lewati jika lagu tidak tersedia di platform ini (PRD §6.4)
-            currentTrackIndex = (currentTrackIndex + 1) % playlist.tracks.size
-        }
-
-        val trackToPlay = playlist.tracks[currentTrackIndex]
-        _currentTrack.value = trackToPlay
+        _currentTrack.value = nextTrack
         _playbackPositionMs.value = 0L
 
         if (_isPlaying.value) {
-            recordPlayedTrack(trackToPlay)
-            MusicPlaybackService.update(context, trackToPlay, true, _activeSource.value)
+            recordPlayedTrack(nextTrack)
+            MusicPlaybackService.update(context, nextTrack, true, _activeSource.value)
         }
     }
 
     override suspend fun skipToPrevious() {
-        val playlist = _activePlaylist.value ?: return
-        if (playlist.tracks.isEmpty()) return
+        if (currentQueue.isEmpty()) return
 
-        currentTrackIndex = if (currentTrackIndex > 0) currentTrackIndex - 1 else playlist.tracks.size - 1
-        val prevTrack = playlist.tracks[currentTrackIndex]
+        val currentIndex = currentQueue.indexOfFirst { it.id == _currentTrack.value?.id }
+        val prevIndex = if (currentIndex > 0) currentIndex - 1 else currentQueue.size - 1
+        val prevTrack = currentQueue[prevIndex]
 
         _currentTrack.value = prevTrack
         _playbackPositionMs.value = 0L
@@ -283,55 +116,32 @@ class MusicRepositoryImpl @Inject constructor(
         _playbackPositionMs.value = positionMs
     }
 
-    /**
-     * Beralih sumber musik di tengah sesi (US-02).
-     * Sesuai PRD §7.5: Ganti sumber TIDAK MERESET timer/jarak tracking GPS.
-     */
     override suspend fun switchSource(newSource: MusicSource): Boolean {
         if (newSource == MusicSource.YOUTUBE_MUSIC && !YouTubeMusicConfig.isYouTubeMusicEnabled) {
             return false
         }
 
-        val oldSource = _activeSource.value
-        if (oldSource == newSource) return true
-
         _activeSource.value = newSource
-
-        // Lakukan pencocokan lagu saat beralih platform
-        val current = _currentTrack.value
-        if (current != null) {
-            val supported = TrackMatchingEngine.hasPlatformSupport(current, newSource)
-            if (!supported) {
-                // Cari lagu pengganti di platform baru
-                skipToNext()
-            } else {
-                recordPlayedTrack(current)
-                if (_isPlaying.value) {
-                    MusicPlaybackService.update(context, current, true, newSource)
-                }
-            }
-        }
-
         return true
     }
 
     override suspend fun selectPlaylist(playlist: WorkoutPlaylist) {
         _activePlaylist.value = playlist
+        currentQueue = playlist.tracks
         if (playlist.tracks.isNotEmpty()) {
-            currentTrackIndex = 0
             _currentTrack.value = playlist.tracks.first()
             _playbackPositionMs.value = 0L
         }
     }
 
     override suspend fun playTrack(track: Track) {
-        val playlist = _activePlaylist.value
-        if (playlist != null) {
-            val index = playlist.tracks.indexOfFirst { it.id == track.id }
-            if (index != -1) {
-                currentTrackIndex = index
-            }
+        // Jika track yang dipilih berasal dari hasil pencarian terakhir, gunakan hasil pencarian sebagai queue
+        if (lastSearchResults.any { it.id == track.id }) {
+            currentQueue = lastSearchResults
+        } else if (!currentQueue.any { it.id == track.id }) {
+            currentQueue = listOf(track)
         }
+
         _currentTrack.value = track
         _playbackPositionMs.value = 0L
         play()
@@ -346,7 +156,6 @@ class MusicRepositoryImpl @Inject constructor(
             playedAt = System.currentTimeMillis()
         )
 
-        // Hindari duplikasi jika lagu yang sama dicatat berturut-turut
         val currentList = _playedTracksInSession.value
         if (currentList.isEmpty() || currentList.last().trackId != track.id) {
             _playedTracksInSession.value = currentList + played
@@ -354,7 +163,9 @@ class MusicRepositoryImpl @Inject constructor(
     }
 
     override suspend fun searchOnlineTracks(query: String): List<Track> {
-        return com.stridebeat.app.data.remote.music.OnlineMusicSearchEngine.searchTracks(query)
+        val results = com.stridebeat.app.data.remote.music.OnlineMusicSearchEngine.searchTracks(query)
+        lastSearchResults = results
+        return results
     }
 
     override suspend fun clearSessionTracks() {
