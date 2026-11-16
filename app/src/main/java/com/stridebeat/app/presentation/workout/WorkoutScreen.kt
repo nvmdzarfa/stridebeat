@@ -68,8 +68,8 @@ fun WorkoutScreen(
     var showFinishDialog by remember { mutableStateOf(false) }
     var showMusicSheet by remember { mutableStateOf(false) }
 
-    // Location Permission launcher
-    val permissionLauncher = rememberLauncherForActivityResult(
+    // Permission launcher saat tombol "MULAI OLAHRAGA" ditekan dan izin belum ada
+    val startWorkoutPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
@@ -79,14 +79,20 @@ fun WorkoutScreen(
         }
     }
 
-    // Hanya minta izin saat pertama kali dibuka, JANGAN auto-start tracking otomatis
+    // Permission launcher saat pertama kali masuk tab Olahraga: HANYA minta izin agar GPS siap, TIDAK auto-start
+    val initialPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        // Tidak melakukan apa-apa otomatis, layar persiapan tetap standby
+    }
+
     LaunchedEffect(Unit) {
         val hasPermission = ContextCompat.checkSelfPermission(
             context, Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
 
         if (!hasPermission) {
-            permissionLauncher.launch(
+            initialPermissionLauncher.launch(
                 arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
                     Manifest.permission.ACCESS_COARSE_LOCATION
@@ -364,7 +370,7 @@ fun WorkoutScreen(
                         workoutViewModel.startWorkout(context, selectedWorkoutType)
                         musicViewModel.play()
                     } else {
-                        permissionLauncher.launch(
+                        startWorkoutPermissionLauncher.launch(
                             arrayOf(
                                 Manifest.permission.ACCESS_FINE_LOCATION,
                                 Manifest.permission.ACCESS_COARSE_LOCATION

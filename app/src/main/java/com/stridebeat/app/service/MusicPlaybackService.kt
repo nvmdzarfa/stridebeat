@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import android.support.v4.media.MediaMetadataCompat
@@ -23,7 +24,7 @@ import com.stridebeat.app.domain.model.Track
 
 /**
  * Service pemutar musik latar belakang menggunakan Android Native MediaPlayer.
- * Memutar langsung stream audio HTTPS (MP4 AAC 320kbps dari JioSaavn & M4A dari Apple Music)
+ * Memutar langsung stream audio HTTPS (MP4 AAC 320kbps dari JioSaavn & HLS/MP3 dari SoundCloud)
  * secara lancar 100% tanpa batas, terintegrasi penuh dengan MediaSessionCompat & lockscreen Android.
  */
 class MusicPlaybackService : Service() {
@@ -96,7 +97,10 @@ class MusicPlaybackService : Service() {
                     try {
                         mp.start()
                         isPlayingState = true
-                        currentDurationMs = mp.duration.toLong().coerceAtLeast(0L)
+                        val mpDuration = mp.duration.toLong()
+                        if (mpDuration > 0) {
+                            currentDurationMs = mpDuration
+                        }
                         updateMediaSession(
                             title = currentTitle,
                             artist = currentArtist,
@@ -131,14 +135,14 @@ class MusicPlaybackService : Service() {
             currentPlayingUrl = url
             try {
                 mediaPlayer?.reset()
-                mediaPlayer?.setDataSource(url)
+                mediaPlayer?.setDataSource(this@MusicPlaybackService, Uri.parse(url))
                 mediaPlayer?.prepareAsync()
             } catch (e: Exception) {
                 try {
                     mediaPlayer?.release()
                     mediaPlayer = null
                     initMediaPlayer()
-                    mediaPlayer?.setDataSource(url)
+                    mediaPlayer?.setDataSource(this@MusicPlaybackService, Uri.parse(url))
                     mediaPlayer?.prepareAsync()
                 } catch (e2: Exception) {
                     e2.printStackTrace()
@@ -207,6 +211,11 @@ class MusicPlaybackService : Service() {
         currentArtist = intent?.getStringExtra(EXTRA_TRACK_ARTIST) ?: "Olahraga & Ritme"
         val isPlaying = intent?.getBooleanExtra(EXTRA_IS_PLAYING, true) ?: true
         val audioUrl = intent?.getStringExtra(EXTRA_AUDIO_URL)
+        val trackDuration = intent?.getLongExtra(EXTRA_TRACK_DURATION, 0L) ?: 0L
+
+        if (trackDuration > 0) {
+            currentDurationMs = trackDuration
+        }
 
         if (isPlaying) {
             if (!audioUrl.isNullOrBlank()) {
@@ -218,7 +227,7 @@ class MusicPlaybackService : Service() {
             pauseAudio()
         }
 
-        updateMediaSession(currentTitle, currentArtist, isPlaying)
+        updateMediaSession(currentTitle, currentArtist, isPlaying, 0L, currentDurationMs)
         val notification = buildMediaNotification(currentTitle, currentArtist, isPlaying)
         startForeground(NOTIFICATION_ID, notification)
 
@@ -352,6 +361,7 @@ class MusicPlaybackService : Service() {
         const val EXTRA_IS_PLAYING = "extra_is_playing"
         const val EXTRA_SOURCE = "extra_source"
         const val EXTRA_AUDIO_URL = "extra_audio_url"
+        const val EXTRA_TRACK_DURATION = "extra_track_duration"
 
         const val ACTION_PLAY = "com.stridebeat.app.action.PLAY"
         const val ACTION_PAUSE = "com.stridebeat.app.action.PAUSE"
@@ -373,6 +383,7 @@ class MusicPlaybackService : Service() {
                 putExtra(EXTRA_IS_PLAYING, isPlaying)
                 putExtra(EXTRA_SOURCE, source.name)
                 putExtra(EXTRA_AUDIO_URL, track.audioUrl)
+                putExtra(EXTRA_TRACK_DURATION, track.durationMs)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)

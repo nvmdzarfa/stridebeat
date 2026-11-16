@@ -42,29 +42,28 @@ jobs:
       - name: Prepare APK Output
         run: |
           mkdir -p release-output
-          cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.0.5.apk
+          cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.0.6.apk
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StrideBeat-v0.0.5
-          path: release-output/StrideBeat-v0.0.5.apk
+          name: StrideBeat-v0.0.6
+          path: release-output/StrideBeat-v0.0.6.apk
           retention-days: 30
 
       - name: Publish to GitHub Releases
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.0.5
-          name: StrideBeat v0.0.5
+          tag_name: v0.0.6
+          name: StrideBeat v0.0.6
           body: |
-            ### 🏃 StrideBeat v0.0.5 Release
+            ### 🏃 StrideBeat v0.0.6 Release
             
-            Unduh file `.apk` di bawah dan install langsung di perangkat Android kamu:
-            - **Pemutaran Audio Asli**: Menggunakan native audio stream MP4/AAC langsung ke perangkat.
-            - **Bebas Template Dummy**: Seluruh template daftar lagu bawaan telah dibersihkan.
-            - **Pencarian Musik Responsif**: Temukan lagu favorit dari cloud secara instan.
-            - **Lockscreen & Background Player**: Kontrol pemutaran, durasi lagu, dan timeline berfungsi penuh.
-          files: release-output/StrideBeat-v0.0.5.apk
+            Unduh file `.apk` di bawah dan pasang langsung di HP Android kamu:
+            - **Pemutaran Full Song 100%**: Tanpa batas 30 detik preview! Mengintegrasikan stream audio full-length dari JioSaavn (320kbps) & SoundCloud API.
+            - **Fix GPS Auto-Start**: Layar Olahraga tidak lagi otomatis berjalan sendiri saat baru meminta izin GPS; pelacakan hanya mulai ketika tombol "MULAI OLAHRAGA" ditekan.
+            - **Lockscreen & Notification**: Durasi lagu aktual (3-4+ menit) dengan slider waktu yang berjalan.
+          files: release-output/StrideBeat-v0.0.6.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
