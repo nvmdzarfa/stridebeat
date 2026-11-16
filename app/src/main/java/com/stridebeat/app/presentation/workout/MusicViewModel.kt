@@ -26,6 +26,11 @@ class MusicViewModel @Inject constructor(
     val activePlaylist: StateFlow<WorkoutPlaylist?> = musicRepository.activePlaylist
     val playedTracksInSession: StateFlow<List<PlayedTrack>> = musicRepository.playedTracksInSession
 
+    // M6 StateFlows
+    val youtubeMusicEnabled: StateFlow<Boolean> = musicRepository.youtubeMusicEnabled
+    val playbackNotice: StateFlow<String?> = musicRepository.playbackNotice
+    val unavailableExternalUrl: StateFlow<String?> = musicRepository.unavailableExternalUrl
+
     fun play() {
         viewModelScope.launch {
             musicRepository.play()
@@ -97,6 +102,24 @@ class MusicViewModel @Inject constructor(
     fun playTrack(track: Track) {
         viewModelScope.launch {
             musicRepository.playTrack(track)
+        }
+    }
+
+    fun clearPlaybackNotice() {
+        viewModelScope.launch {
+            musicRepository.clearPlaybackNotice()
+        }
+    }
+
+    fun setYouTubeMusicEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            musicRepository.setYouTubeMusicEnabled(enabled)
+        }
+    }
+
+    fun tryPlayCurrentTrackOnSoundCloud() {
+        viewModelScope.launch {
+            musicRepository.tryPlayCurrentTrackOnSoundCloud()
         }
     }
 }

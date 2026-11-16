@@ -62,10 +62,17 @@ object AppModule {
     @Provides
     @Singleton
     fun provideMusicRepository(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        musicPreferences: com.stridebeat.app.data.local.MusicPreferences,
+        youTubeMusicClient: com.stridebeat.app.data.remote.youtubemusic.YouTubeMusicClient
     ): com.stridebeat.app.domain.repository.MusicRepository {
-        return com.stridebeat.app.data.repository.MusicRepositoryImpl(context)
+        return com.stridebeat.app.data.repository.MusicRepositoryImpl(
+            context,
+            musicPreferences,
+            youTubeMusicClient
+        )
     }
+
 
     @Provides
     @Singleton

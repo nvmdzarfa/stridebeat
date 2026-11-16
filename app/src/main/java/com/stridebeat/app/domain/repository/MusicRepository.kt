@@ -7,9 +7,9 @@ import com.stridebeat.app.domain.model.WorkoutPlaylist
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Interface repositori kontrol musik independen platform (Spotify & YouTube Music).
+ * Interface repositori kontrol musik independen platform (SoundCloud & YouTube Music).
  * Sesuai PRD §1.1 & §7.5:
- * Berperan sebagai hub / switcher musik antar platform tanpa menghentikan tracking olahraga.
+ * Berperan sebagai hub / switcher musik antar platform tanpa menghentikan atau me-reset tracking olahraga.
  */
 interface MusicRepository {
     val activeSource: StateFlow<MusicSource>
@@ -19,6 +19,11 @@ interface MusicRepository {
     val availablePlaylists: StateFlow<List<WorkoutPlaylist>>
     val activePlaylist: StateFlow<WorkoutPlaylist?>
     val playedTracksInSession: StateFlow<List<PlayedTrack>>
+
+    // State Banner Notifikasi & Feature Flag M6
+    val youtubeMusicEnabled: StateFlow<Boolean>
+    val playbackNotice: StateFlow<String?>
+    val unavailableExternalUrl: StateFlow<String?>
 
     suspend fun play()
     suspend fun pause()
@@ -32,4 +37,9 @@ interface MusicRepository {
     suspend fun playTrack(track: Track)
     suspend fun searchOnlineTracks(query: String): List<Track>
     suspend fun clearSessionTracks()
+
+    // Aksi Pemulihan & Feature Flag M6
+    suspend fun clearPlaybackNotice()
+    suspend fun setYouTubeMusicEnabled(enabled: Boolean)
+    suspend fun tryPlayCurrentTrackOnSoundCloud()
 }
