@@ -7,6 +7,9 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
@@ -21,24 +24,38 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import coil.ImageLoader
+import coil.request.ImageRequest
+import coil.request.SuccessResult
 import com.stridebeat.app.MainActivity
 import com.stridebeat.app.R
 import com.stridebeat.app.domain.model.MusicSource
 import com.stridebeat.app.domain.model.Track
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 
 /**
  * Service pemutar musik latar belakang menggunakan AndroidX Media3 ExoPlayer.
  * Mendukung penuh pemutaran audio HLS (fMP4 / AAC), progressive MP3, dan streaming cloud lainnya
- * secara lancar 100% dengan suara nyata tanpa batas 30 detik.
+ * serta menampilkan cover art lagu pada media notification bar & lockscreen Android.
  */
 class MusicPlaybackService : Service() {
 
     private lateinit var mediaSession: MediaSessionCompat
     private var exoPlayer: ExoPlayer? = null
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private var currentPlayingUrl: String? = null
     private var currentTitle: String = "StrideBeat Music"
     private var currentArtist: String = "Olahraga & Ritme"
+    private var currentCoverUrl: String? = null
+    private var currentCoverBitmap: Bitmap? = null
     private var isPlayingState: Boolean = false
     private var currentDurationMs: Long = 0L
 
@@ -211,12 +228,15 @@ class MusicPlaybackService : Service() {
         currentArtist = intent?.getStringExtra(EXTRA_TRACK_ARTIST) ?: "Olahraga & Ritme"
         val isPlaying = intent?.getBooleanExtra(EXTRA_IS_PLAYING, true) ?: true
         val audioUrl = intent?.getStringExtra(EXTRA_AUDIO_URL)
+        val coverUrl = intent?.getStringExtra(EXTRA_COVER_URL)
         val trackDuration = intent?.getLongExtra(EXTRA_TRACK_DURATION, 0L) ?: 0L
 
+        isPlayingState = isPlaying
         if (trackDuration > 0) {
             currentDurationMs = trackDuration
         }
 
+        val isSameTrack = !audioUrl.isNullOrBlank() && audioUrl == currentPlayingUrl
         if (isPlaying) {
             if (!audioUrl.isNullOrBlank()) {
                 playAudio(audioUrl)
@@ -227,11 +247,73 @@ class MusicPlaybackService : Service() {
             pauseAudio()
         }
 
-        updateMediaSession(currentTitle, currentArtist, isPlaying, 0L, currentDurationMs)
+        if (coverUrl != currentCoverUrl) {
+            currentCoverUrl = coverUrl
+            currentCoverBitmap = null
+            if (!coverUrl.isNullOrBlank()) {
+                fetchAndApplyCoverArt(coverUrl)
+            }
+        }
+
+        val currentPos = if (isSameTrack) (exoPlayer?.currentPosition ?: 0L) else 0L
+        updateMediaSession(currentTitle, currentArtist, isPlaying, currentPos, currentDurationMs)
         val notification = buildMediaNotification(currentTitle, currentArtist, isPlaying)
         startForeground(NOTIFICATION_ID, notification)
 
         return START_NOT_STICKY
+    }
+
+    private fun fetchAndApplyCoverArt(coverUrl: String) {
+        serviceScope.launch {
+            val bitmap = loadCoverBitmap(coverUrl) ?: return@launch
+            withContext(Dispatchers.Main) {
+                if (currentCoverUrl == coverUrl) {
+                    currentCoverBitmap = bitmap
+                    val pos = exoPlayer?.currentPosition ?: 0L
+                    val dur = exoPlayer?.duration?.takeIf { it > 0 } ?: currentDurationMs
+                    updateMediaSession(currentTitle, currentArtist, isPlayingState, pos, dur)
+                    updateNotification(isPlayingState)
+                }
+            }
+        }
+    }
+
+    private suspend fun loadCoverBitmap(coverUrl: String): Bitmap? {
+        // 1. Coba muat menggunakan Coil dengan allowHardware(false) agar aman dikirim ke Notification/Binder
+        try {
+            val loader = ImageLoader(applicationContext)
+            val request = ImageRequest.Builder(applicationContext)
+                .data(coverUrl)
+                .allowHardware(false)
+                .size(512, 512)
+                .build()
+            val result = loader.execute(request)
+            if (result is SuccessResult) {
+                val bmp = (result.drawable as? BitmapDrawable)?.bitmap
+                if (bmp != null) {
+                    return bmp.copy(Bitmap.Config.ARGB_8888, false)
+                }
+            }
+        } catch (_: Exception) {
+        }
+
+        // 2. Fallback manual HTTP stream decode jika Coil gagal
+        return try {
+            val conn = (URL(coverUrl).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 5000
+                readTimeout = 5000
+                setRequestProperty("User-Agent", "Mozilla/5.0")
+            }
+            if (conn.responseCode == 200) {
+                conn.inputStream.use { stream ->
+                    BitmapFactory.decodeStream(stream)
+                }
+            } else {
+                null
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun updateMediaSession(
@@ -246,6 +328,14 @@ class MusicPlaybackService : Service() {
             .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, artist)
         if (durationMs > 0) {
             metadataBuilder.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationMs)
+        }
+        currentCoverUrl?.takeIf { it.isNotBlank() }?.let { uri ->
+            metadataBuilder.putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, uri)
+            metadataBuilder.putString(MediaMetadataCompat.METADATA_KEY_ART_URI, uri)
+        }
+        currentCoverBitmap?.let { bmp ->
+            metadataBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, bmp)
+            metadataBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, bmp)
         }
         mediaSession.setMetadata(metadataBuilder.build())
 
@@ -308,10 +398,10 @@ class MusicPlaybackService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(artist)
-            .setSubText("StrideBeat Workout Music")
+            .setSubText("StrideBeat Music")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(contentPending)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -324,13 +414,19 @@ class MusicPlaybackService : Service() {
                     .setMediaSession(mediaSession.sessionToken)
                     .setShowActionsInCompactView(0, 1, 2)
             )
-            .build()
+
+        currentCoverBitmap?.let { bmp ->
+            builder.setLargeIcon(bmp)
+        }
+
+        return builder.build()
     }
 
     override fun onDestroy() {
         if (activeServiceInstance == this) {
             activeServiceInstance = null
         }
+        serviceScope.cancel()
         stopAudio()
         exoPlayer?.release()
         exoPlayer = null
@@ -364,6 +460,7 @@ class MusicPlaybackService : Service() {
         const val EXTRA_IS_PLAYING = "extra_is_playing"
         const val EXTRA_SOURCE = "extra_source"
         const val EXTRA_AUDIO_URL = "extra_audio_url"
+        const val EXTRA_COVER_URL = "extra_cover_url"
         const val EXTRA_TRACK_DURATION = "extra_track_duration"
 
         const val ACTION_PLAY = "com.stridebeat.app.action.PLAY"
@@ -406,6 +503,7 @@ class MusicPlaybackService : Service() {
                 putExtra(EXTRA_IS_PLAYING, isPlaying)
                 putExtra(EXTRA_SOURCE, source.name)
                 putExtra(EXTRA_AUDIO_URL, track.audioUrl)
+                putExtra(EXTRA_COVER_URL, track.coverUrl)
                 putExtra(EXTRA_TRACK_DURATION, track.durationMs)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

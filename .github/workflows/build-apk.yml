@@ -42,29 +42,29 @@ jobs:
       - name: Prepare APK Output
         run: |
           mkdir -p release-output
-          cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.0.9.apk
+          cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.0.10.apk
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StrideBeat-v0.0.9
-          path: release-output/StrideBeat-v0.0.9.apk
+          name: StrideBeat-v0.0.10
+          path: release-output/StrideBeat-v0.0.10.apk
           retention-days: 30
 
       - name: Publish to GitHub Releases
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.0.9
-          name: StrideBeat v0.0.9
+          tag_name: v0.0.10
+          name: StrideBeat v0.0.10
           body: |
-            ### 🏃 StrideBeat v0.0.9 Release
+            ### 🏃 StrideBeat v0.0.10 Release
 
             Unduh file `.apk` di bawah dan install langsung di smartphone Android kamu:
-            - 🎵 **Slider & Seek Durasi Musik**: Dilengkapi progress bar interaktif dengan indikator menit:detik riil (`02:19` / `03:27`) yang dapat digeser (seek) baik di dalam sheet aplikasi maupun di media notification Android.
-            - 🖼️ **Album Artwork Nyata**: Menggunakan Coil Image Loader untuk menampilkan cover art resolusi tinggi (500x500) pada pencarian dan mini-player.
-            - 🗺️ **Perbaikan Peta Standby**: Teks "Mencari Sinyal GPS..." tidak lagi muncul sebelum tombol Mulai ditekan (langsung bertuliskan "Area Peta Live Tracking").
-            - 📍 **Fix Izin GPS**: Membuka tab Olahraga tidak lagi auto-start sesi workout saat izin lokasi diberikan.
-          files: release-output/StrideBeat-v0.0.9.apk
+            - ✨ **Desain Baru Glassmorphism**: Tampilan modern serba transparan dengan efek kaca frosted, border specular, dan latar aurora mesh di seluruh halaman serta floating bottom navbar.
+            - 🌗 **Switch Dark Mode & Light Mode**: Kini bisa gonta-ganti tema Gelap, Terang, atau Ikuti Sistem dari Pengaturan maupun tombol cepat di Beranda.
+            - 🖼️ **Cover Lagu di Notifikasi Bar**: Album art lagu kini tampil langsung di media notification & lock screen Android.
+            - 🔔 **Notifikasi & Popup Update**: Fitur pengecekan versi otomatis dengan notifikasi sistem dan dialog popup pembaruan di dalam aplikasi.
+          files: release-output/StrideBeat-v0.0.10.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

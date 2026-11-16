@@ -2,7 +2,6 @@ package com.stridebeat.app.presentation.recap
 
 import android.content.Context
 import android.content.Intent
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,12 +13,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stridebeat.app.domain.model.MusicSource
@@ -39,6 +36,7 @@ fun RecapScreen(
     historyViewModel: HistoryViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val glass = StrideBeatGlass.colors
     val allSessions by historyViewModel.sessions.collectAsStateWithLifecycle()
     val currentSession = session ?: allSessions.firstOrNull()
 
@@ -57,30 +55,38 @@ fun RecapScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
                 .padding(24.dp),
             contentAlignment = Alignment.Center
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                cornerRadius = 24.dp
             ) {
-                Text(
-                    text = "Tidak Ada Sesi Olahraga",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = TextPrimaryDark
-                )
-                Text(
-                    text = "Belum ada sesi olahraga yang tersimpan untuk ditampilkan.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondaryDark,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-                Button(
-                    onClick = onDoneClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = SportPrimary)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    Text("Kembali", color = DarkBackground, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "Tidak Ada Sesi Olahraga",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = glass.textPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Belum ada sesi olahraga yang tersimpan untuk ditampilkan.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = glass.textSecondary,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    GlassPrimaryButton(
+                        onClick = onDoneClick,
+                        cornerRadius = 16.dp
+                    ) {
+                        Text("Kembali", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
@@ -94,14 +100,15 @@ fun RecapScreen(
                 Text(
                     text = "Upload ke Strava",
                     style = MaterialTheme.typography.titleLarge,
-                    color = TextPrimaryDark
+                    color = glass.textPrimary,
+                    fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 Text(
                     text = "Kamu bisa mengekspor rute ini dalam format GPX dan mengunggahnya secara gratis ke https://www.strava.com/upload tanpa membutuhkan langganan API berbayar.\n\nAtau hubungkan akun di Pengaturan jika kamu memiliki Strava API Key pribadi.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondaryDark
+                    color = glass.textSecondary
                 )
             },
             confirmButton = {
@@ -113,26 +120,28 @@ fun RecapScreen(
                             context.startActivity(Intent.createChooser(shareIntent, "Ekspor File GPX untuk Strava"))
                         } catch (_: Exception) {}
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFC4C02))
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = StravaBrand,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Text("Ekspor File GPX", color = TextPrimaryDark, fontWeight = FontWeight.Bold)
+                    Text("Ekspor File GPX", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showStravaDialog = false }) {
-                    Text("Tutup", color = TextSecondaryDark)
+                    Text("Tutup", color = glass.textSecondary)
                 }
             },
-            containerColor = DarkSurface,
-            shape = RoundedCornerShape(16.dp)
+            containerColor = glass.modalSurface,
+            shape = RoundedCornerShape(22.dp)
         )
     }
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp),
+            .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Header
@@ -146,25 +155,22 @@ fun RecapScreen(
                     Text(
                         text = "Recap Olahraga",
                         style = MaterialTheme.typography.headlineMedium,
-                        color = TextPrimaryDark
+                        color = glass.textPrimary,
+                        fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = "${currentSession.type.displayName} • ${String.format(Locale.US, "%.2f km", currentSession.distanceMeters / 1000.0)} selesai",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondaryDark
+                        color = glass.textSecondary
                     )
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = SportPrimary.copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, SportPrimary.copy(alpha = 0.4f))
-                ) {
+                GlassPill(tint = glass.primary) {
                     Text(
-                        text = "TERSIMPAN OFFLINE",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        text = "TERSIMPAN",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
-                        color = SportPrimary,
+                        color = glass.primary,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -178,22 +184,22 @@ fun RecapScreen(
                 isGpsInterrupted = currentSession.gpsInterrupted,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp)
+                    .height(210.dp)
             )
         }
 
-        // Peringatan jika GPS sempat hilang (PRD §7.6)
+        // Peringatan jika GPS sempat hilang
         if (currentSession.gpsInterrupted) {
             item {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = StatusWarning.copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, StatusWarning.copy(alpha = 0.5f))
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    cornerRadius = 14.dp,
+                    accentBorderColor = StatusWarning
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(10.dp),
+                            .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -210,14 +216,13 @@ fun RecapScreen(
 
         // Metrics Grid Card
         item {
-            Card(
+            GlassCard(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurface),
-                border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
+                cornerRadius = 22.dp,
+                elevated = true
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Row(
@@ -236,7 +241,7 @@ fun RecapScreen(
                         )
                     }
 
-                    Divider(color = DarkBorder)
+                    GlassDivider()
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -267,12 +272,13 @@ fun RecapScreen(
                 Text(
                     text = "Lagu yang Menemanimu (${currentSession.playedTracks.size})",
                     style = MaterialTheme.typography.titleLarge,
-                    color = TextPrimaryDark
+                    color = glass.textPrimary,
+                    fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Disinkronkan otomatis",
+                    text = "Otomatis",
                     style = MaterialTheme.typography.bodySmall,
-                    color = TextMutedDark
+                    color = glass.textMuted
                 )
             }
         }
@@ -290,55 +296,45 @@ fun RecapScreen(
                     .padding(vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Share Summary Text Button
                 OutlinedButton(
-                    onClick = {
-                        shareWorkoutSummary(context, currentSession)
-                    },
+                    onClick = { shareWorkoutSummary(context, currentSession) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, SportPrimary),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SportPrimary)
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, glass.primary),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = glass.primary)
                 ) {
                     Icon(imageVector = Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(text = "Bagikan Ringkasan Lari", fontWeight = FontWeight.Bold)
                 }
 
-                // Upload to Strava / Export GPX
                 OutlinedButton(
                     onClick = { showStravaDialog = true },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFFC4C02)),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFC4C02))
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, StravaBrand),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = StravaBrand)
                 ) {
                     Icon(imageVector = Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(text = "Ekspor GPX / Upload Strava", fontWeight = FontWeight.Bold)
                 }
 
-                // Done & Back to Home
-                Button(
+                GlassPrimaryButton(
                     onClick = onDoneClick,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = SportPrimary,
-                        contentColor = DarkBackground
-                    )
+                        .height(54.dp),
+                    cornerRadius = 18.dp
                 ) {
                     Text(
                         text = "Selesai & Simpan",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = DarkBackground
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -377,18 +373,19 @@ private fun RecapStat(
     value: String,
     unit: String
 ) {
+    val glass = StrideBeatGlass.colors
     Column {
         Text(
             text = title,
             style = MaterialTheme.typography.labelSmall,
-            color = TextMutedDark
+            color = glass.textMuted
         )
         Spacer(modifier = Modifier.height(2.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 text = value,
                 style = MaterialTheme.typography.headlineLarge,
-                color = SportPrimary,
+                color = glass.primary,
                 fontWeight = FontWeight.Bold
             )
             if (unit.isNotBlank()) {
@@ -396,7 +393,7 @@ private fun RecapStat(
                 Text(
                     text = unit,
                     style = MaterialTheme.typography.titleMedium,
-                    color = TextSecondaryDark,
+                    color = glass.textSecondary,
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
             }
@@ -406,16 +403,16 @@ private fun RecapStat(
 
 @Composable
 private fun PlayedTrackItem(track: PlayedTrack) {
-    Surface(
+    val glass = StrideBeatGlass.colors
+    val brandColor = if (track.source == MusicSource.SPOTIFY) SpotifyBrand else YouTubeBrand
+    GlassCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = DarkSurface,
-        border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
+        cornerRadius = 16.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -424,20 +421,15 @@ private fun PlayedTrackItem(track: PlayedTrack) {
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (track.source == MusicSource.SPOTIFY) SpotifyBrand.copy(alpha = 0.2f)
-                            else YouTubeBrand.copy(alpha = 0.2f)
-                        ),
-                    contentAlignment = Alignment.Center
+                GlassPill(
+                    tint = brandColor,
+                    shape = CircleShape,
+                    modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.MusicNote,
                         contentDescription = null,
-                        tint = if (track.source == MusicSource.SPOTIFY) SpotifyBrand else YouTubeBrand,
+                        tint = brandColor,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -446,26 +438,23 @@ private fun PlayedTrackItem(track: PlayedTrack) {
                     Text(
                         text = track.title,
                         style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimaryDark,
+                        color = glass.textPrimary,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
                         text = track.artist,
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondaryDark
+                        color = glass.textSecondary
                     )
                 }
             }
 
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = if (track.source == MusicSource.SPOTIFY) SpotifyBrand.copy(alpha = 0.15f) else YouTubeBrand.copy(alpha = 0.15f)
-            ) {
+            GlassPill(tint = brandColor, shape = RoundedCornerShape(8.dp)) {
                 Text(
-                    text = if (track.source == MusicSource.SPOTIFY) "Spotify" else "YouTube Music",
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    text = if (track.source == MusicSource.SPOTIFY) "Spotify" else "Online",
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (track.source == MusicSource.SPOTIFY) SpotifyBrand else YouTubeBrand,
+                    color = brandColor,
                     fontWeight = FontWeight.SemiBold
                 )
             }

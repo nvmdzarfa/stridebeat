@@ -13,7 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -31,22 +31,29 @@ fun RouteMapCanvas(
     modifier: Modifier = Modifier,
     isTrackingActive: Boolean = true
 ) {
+    val glass = StrideBeatGlass.colors
+    val shape = RoundedCornerShape(22.dp)
+
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(DarkSurfaceElevated)
-            .border(1.dp, DarkBorder, RoundedCornerShape(16.dp))
+            .clip(shape)
+            .background(glass.mapBackground)
+            .border(
+                width = 1.dp,
+                brush = Brush.linearGradient(listOf(glass.glassBorderStart, glass.glassBorderEnd)),
+                shape = shape
+            )
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val width = size.width
             val height = size.height
 
-            // 1. Gambar grid peta latar belakang bernuansa sporty dark
+            // 1. Grid peta tema adaptif (Dark & Light)
             val gridSpacing = 40.dp.toPx()
             var x = 0f
             while (x < width) {
                 drawLine(
-                    color = Color(0xFF26262A),
+                    color = glass.mapGrid,
                     start = Offset(x, 0f),
                     end = Offset(x, height),
                     strokeWidth = 1f
@@ -56,7 +63,7 @@ fun RouteMapCanvas(
             var y = 0f
             while (y < height) {
                 drawLine(
-                    color = Color(0xFF26262A),
+                    color = glass.mapGrid,
                     start = Offset(0f, y),
                     end = Offset(width, y),
                     strokeWidth = 1f
@@ -64,14 +71,13 @@ fun RouteMapCanvas(
                 y += gridSpacing
             }
 
-            // 2. Gambar rute polyline jika ada titik GPS
+            // 2. Polyline rute GPS
             if (routePoints.size >= 2) {
-                var minLat = routePoints.minOf { it.latitude }
-                var maxLat = routePoints.maxOf { it.latitude }
-                var minLng = routePoints.minOf { it.longitude }
-                var maxLng = routePoints.maxOf { it.longitude }
+                val minLat = routePoints.minOf { it.latitude }
+                val maxLat = routePoints.maxOf { it.latitude }
+                val minLng = routePoints.minOf { it.longitude }
+                val maxLng = routePoints.maxOf { it.longitude }
 
-                // Berikan padding minimum agar tidak terpotong
                 val latSpan = max(maxLat - minLat, 0.0005)
                 val lngSpan = max(maxLng - minLng, 0.0005)
 
@@ -97,61 +103,56 @@ fun RouteMapCanvas(
                     path.lineTo(offset.x, offset.y)
                 }
 
-                // Gambar bayangan polyline (glow neon)
                 drawPath(
                     path = path,
-                    color = SportPrimary.copy(alpha = 0.3f),
-                    style = Stroke(width = 10f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                    color = glass.primary.copy(alpha = 0.28f),
+                    style = Stroke(width = 11f, cap = StrokeCap.Round, join = StrokeJoin.Round)
                 )
 
-                // Garis rute utama hijau volt
                 drawPath(
                     path = path,
-                    color = SportPrimary,
+                    color = glass.primary,
                     style = Stroke(width = 4.5f, cap = StrokeCap.Round, join = StrokeJoin.Round)
                 )
 
-                // Titik Mulai (Start Marker)
                 drawCircle(
                     color = SportSecondary,
                     radius = 6f,
                     center = firstOffset
                 )
 
-                // Titik Terkini (Current Location Marker)
                 val currentOffset = projectToCanvas(routePoints.last())
                 drawCircle(
-                    color = SportPrimary.copy(alpha = 0.35f),
+                    color = glass.primary.copy(alpha = 0.35f),
                     radius = 16f,
                     center = currentOffset
                 )
                 drawCircle(
-                    color = TextPrimaryDark,
+                    color = glass.textPrimary,
                     radius = 7f,
                     center = currentOffset
                 )
                 drawCircle(
-                    color = SportPrimary,
+                    color = glass.primary,
                     radius = 4f,
                     center = currentOffset
                 )
             } else if (routePoints.size == 1) {
-                // Satu titik awal
                 val centerOffset = Offset(width / 2, height / 2)
                 drawCircle(
-                    color = SportPrimary.copy(alpha = 0.3f),
+                    color = glass.primary.copy(alpha = 0.3f),
                     radius = 18f,
                     center = centerOffset
                 )
                 drawCircle(
-                    color = SportPrimary,
+                    color = glass.primary,
                     radius = 6f,
                     center = centerOffset
                 )
             }
         }
 
-        // Overlay Status Sinyal GPS (hanya saat workout aktif)
+        // Overlay Status Sinyal GPS (saat tracking aktif)
         if (isTrackingActive) {
             Row(
                 modifier = Modifier
@@ -160,13 +161,9 @@ fun RouteMapCanvas(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (isGpsInterrupted) StatusWarning.copy(alpha = 0.2f) else DarkSurface.copy(alpha = 0.85f),
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        if (isGpsInterrupted) StatusWarning.copy(alpha = 0.6f) else DarkBorder
-                    )
+                GlassPill(
+                    tint = if (isGpsInterrupted) StatusWarning else glass.primary,
+                    shape = RoundedCornerShape(10.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -176,13 +173,13 @@ fun RouteMapCanvas(
                         Icon(
                             imageVector = Icons.Default.MyLocation,
                             contentDescription = null,
-                            tint = if (isGpsInterrupted) StatusWarning else SportPrimary,
+                            tint = if (isGpsInterrupted) StatusWarning else glass.primary,
                             modifier = Modifier.size(13.dp)
                         )
                         Text(
                             text = if (isGpsInterrupted) "GPS Terputus" else "OpenStreetMap • GPS Aktif",
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (isGpsInterrupted) StatusWarning else SportPrimary,
+                            color = if (isGpsInterrupted) StatusWarning else glass.primary,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -203,14 +200,14 @@ fun RouteMapCanvas(
                 Text(
                     text = if (isTrackingActive) "Menunggu Pergerakan..." else "Area Peta Live Tracking",
                     style = MaterialTheme.typography.titleMedium,
-                    color = TextPrimaryDark,
+                    color = glass.textPrimary,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = if (isTrackingActive) "Rute polyline live akan tergambar saat kamu mulai melangkah"
                     else "Rute latihan dan kecepatanmu akan terekam otomatis di sini",
                     style = MaterialTheme.typography.bodySmall,
-                    color = TextMutedDark,
+                    color = glass.textMuted,
                     fontSize = 11.sp,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )

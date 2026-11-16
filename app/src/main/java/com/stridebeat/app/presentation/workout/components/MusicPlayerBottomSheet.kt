@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -15,11 +14,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontFamily
 import coil.compose.AsyncImage
 import com.stridebeat.app.domain.model.MusicSource
 import com.stridebeat.app.domain.model.PlayedTrack
@@ -57,6 +56,7 @@ fun MusicPlayerBottomSheet(
     onSearchOnline: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val glass = StrideBeatGlass.colors
     var searchQuery by remember { mutableStateOf("") }
 
     val quickChips = listOf(
@@ -78,10 +78,10 @@ fun MusicPlayerBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = DarkSurface,
+        containerColor = glass.modalSurface,
         dragHandle = {
             BottomSheetDefaults.DragHandle(
-                color = DarkBorder,
+                color = glass.divider,
                 modifier = Modifier.padding(vertical = 8.dp)
             )
         },
@@ -93,7 +93,7 @@ fun MusicPlayerBottomSheet(
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 1. Search Bar Luas & Responsif
+            // 1. Search Bar
             item {
                 OutlinedTextField(
                     value = searchQuery,
@@ -103,26 +103,26 @@ fun MusicPlayerBottomSheet(
                         .height(54.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = DarkSurfaceElevated,
-                        unfocusedContainerColor = DarkSurfaceElevated,
-                        focusedBorderColor = SportPrimary,
-                        unfocusedBorderColor = DarkBorder,
-                        focusedTextColor = TextPrimaryDark,
-                        unfocusedTextColor = TextPrimaryDark,
-                        cursorColor = SportPrimary
+                        focusedContainerColor = glass.glassElevatedTop,
+                        unfocusedContainerColor = glass.glassSurfaceTop,
+                        focusedBorderColor = glass.primary,
+                        unfocusedBorderColor = glass.divider,
+                        focusedTextColor = glass.textPrimary,
+                        unfocusedTextColor = glass.textPrimary,
+                        cursorColor = glass.primary
                     ),
                     placeholder = {
                         Text(
                             text = "Ketik judul lagu atau artis favorit...",
                             fontSize = 13.sp,
-                            color = TextMutedDark
+                            color = glass.textMuted
                         )
                     },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = null,
-                            tint = SportPrimary,
+                            tint = glass.primary,
                             modifier = Modifier.size(20.dp)
                         )
                     },
@@ -132,7 +132,7 @@ fun MusicPlayerBottomSheet(
                                 Icon(
                                     imageVector = Icons.Default.Close,
                                     contentDescription = "Hapus",
-                                    tint = TextSecondaryDark,
+                                    tint = glass.textSecondary,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -142,7 +142,6 @@ fun MusicPlayerBottomSheet(
                 )
             }
 
-            // Jika sedang mengetik pencarian
             if (searchQuery.isNotBlank()) {
                 if (isSearching) {
                     item {
@@ -154,7 +153,7 @@ fun MusicPlayerBottomSheet(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             CircularProgressIndicator(
-                                color = SportPrimary,
+                                color = glass.primary,
                                 modifier = Modifier.size(24.dp),
                                 strokeWidth = 2.dp
                             )
@@ -162,7 +161,7 @@ fun MusicPlayerBottomSheet(
                             Text(
                                 text = "Mencari musik online...",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondaryDark
+                                color = glass.textSecondary
                             )
                         }
                     }
@@ -177,13 +176,13 @@ fun MusicPlayerBottomSheet(
                             Text(
                                 text = "Lagu tidak ditemukan untuk \"$searchQuery\"",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondaryDark
+                                color = glass.textSecondary
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = "Coba ketik nama artis atau judul lagu lain",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = TextMutedDark
+                                color = glass.textMuted
                             )
                         }
                     }
@@ -192,7 +191,7 @@ fun MusicPlayerBottomSheet(
                         Text(
                             text = "HASIL PENCARIAN (${searchResults.size})",
                             style = MaterialTheme.typography.labelSmall,
-                            color = SportPrimary,
+                            color = glass.primary,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.5.sp
                         )
@@ -200,18 +199,12 @@ fun MusicPlayerBottomSheet(
 
                     items(searchResults) { track ->
                         val isCurrent = track.id == currentTrack?.id
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onPlayTrack(track) },
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isCurrent) DarkSurfaceElevated else DarkSurface
-                            ),
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                if (isCurrent) SportPrimary else DarkBorder
-                            )
+                        GlassCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            cornerRadius = 16.dp,
+                            elevated = isCurrent,
+                            accentBorderColor = if (isCurrent) glass.primary else null,
+                            onClick = { onPlayTrack(track) }
                         ) {
                             Row(
                                 modifier = Modifier
@@ -229,7 +222,7 @@ fun MusicPlayerBottomSheet(
                                         modifier = Modifier
                                             .size(44.dp)
                                             .clip(RoundedCornerShape(10.dp))
-                                            .background(DarkSurfaceElevated),
+                                            .background(glass.glassElevatedTop),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         if (!track.coverUrl.isNullOrBlank()) {
@@ -250,7 +243,7 @@ fun MusicPlayerBottomSheet(
                                                 Icon(
                                                     imageVector = Icons.Default.GraphicEq,
                                                     contentDescription = null,
-                                                    tint = SportPrimary,
+                                                    tint = glass.primary,
                                                     modifier = Modifier.size(20.dp)
                                                 )
                                             }
@@ -258,7 +251,7 @@ fun MusicPlayerBottomSheet(
                                             Icon(
                                                 imageVector = if (isCurrent) Icons.Default.PlayArrow else Icons.Default.MusicNote,
                                                 contentDescription = null,
-                                                tint = if (isCurrent) SportPrimary else TextSecondaryDark,
+                                                tint = if (isCurrent) glass.primary else glass.textSecondary,
                                                 modifier = Modifier.size(20.dp)
                                             )
                                         }
@@ -268,28 +261,25 @@ fun MusicPlayerBottomSheet(
                                         Text(
                                             text = track.title,
                                             style = MaterialTheme.typography.bodyMedium,
-                                            color = if (isCurrent) SportPrimary else TextPrimaryDark,
+                                            color = if (isCurrent) glass.primary else glass.textPrimary,
                                             fontWeight = FontWeight.Bold,
                                             maxLines = 1
                                         )
                                         Text(
                                             text = "${track.artist} • ${track.album ?: "Audio Asli"}",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = TextSecondaryDark,
+                                            color = glass.textSecondary,
                                             maxLines = 1
                                         )
                                     }
                                 }
 
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = SportPrimary.copy(alpha = 0.15f)
-                                ) {
+                                GlassPill(tint = glass.primary, shape = RoundedCornerShape(8.dp)) {
                                     Text(
                                         text = if (isCurrent && isPlaying) "Memutar" else "Putar",
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = SportPrimary,
+                                        color = glass.primary,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -298,17 +288,13 @@ fun MusicPlayerBottomSheet(
                     }
                 }
             } else {
-                // 2. Tampilan Normal Saat Tidak Mengetik Search
-                // Card Now Playing Hero (atau Welcoming Card jika belum ada lagu)
+                // Card Now Playing Hero
                 item {
-                    Card(
+                    GlassCard(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (currentTrack != null) SportPrimary.copy(alpha = 0.4f) else DarkBorder
-                        )
+                        cornerRadius = 22.dp,
+                        elevated = true,
+                        accentBorderColor = if (currentTrack != null) glass.primary else null
                     ) {
                         Column(
                             modifier = Modifier.padding(18.dp),
@@ -322,8 +308,8 @@ fun MusicPlayerBottomSheet(
                                     Box(
                                         modifier = Modifier
                                             .size(56.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(DarkSurface),
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .background(glass.glassElevatedTop),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         if (!currentTrack.coverUrl.isNullOrBlank()) {
@@ -338,7 +324,7 @@ fun MusicPlayerBottomSheet(
                                             Icon(
                                                 imageVector = if (isPlaying) Icons.Default.GraphicEq else Icons.Default.MusicNote,
                                                 contentDescription = null,
-                                                tint = SportPrimary,
+                                                tint = glass.primary,
                                                 modifier = Modifier.size(26.dp)
                                             )
                                         }
@@ -348,7 +334,7 @@ fun MusicPlayerBottomSheet(
                                         Text(
                                             text = currentTrack.title,
                                             style = MaterialTheme.typography.titleMedium,
-                                            color = TextPrimaryDark,
+                                            color = glass.textPrimary,
                                             fontWeight = FontWeight.Bold,
                                             maxLines = 1
                                         )
@@ -356,7 +342,7 @@ fun MusicPlayerBottomSheet(
                                         Text(
                                             text = "${currentTrack.artist} • Diputar Langsung",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = TextSecondaryDark,
+                                            color = glass.textSecondary,
                                             maxLines = 1
                                         )
                                     }
@@ -386,9 +372,9 @@ fun MusicPlayerBottomSheet(
                                             onSeekTo((seekFraction * duration).toLong())
                                         },
                                         colors = SliderDefaults.colors(
-                                            thumbColor = SportPrimary,
-                                            activeTrackColor = SportPrimary,
-                                            inactiveTrackColor = DarkBorder
+                                            thumbColor = glass.primary,
+                                            activeTrackColor = glass.primary,
+                                            inactiveTrackColor = glass.trackBarInactive
                                         ),
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -401,14 +387,14 @@ fun MusicPlayerBottomSheet(
                                         Text(
                                             text = formatPlaybackTime(currentPosition),
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = TextSecondaryDark,
+                                            color = glass.textSecondary,
                                             fontFamily = FontFamily.Monospace,
                                             fontSize = 11.sp
                                         )
                                         Text(
                                             text = formatPlaybackTime(duration),
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = TextMutedDark,
+                                            color = glass.textMuted,
                                             fontFamily = FontFamily.Monospace,
                                             fontSize = 11.sp
                                         )
@@ -427,7 +413,7 @@ fun MusicPlayerBottomSheet(
                                         Icon(
                                             imageVector = Icons.Default.SkipPrevious,
                                             contentDescription = "Sebelumnya",
-                                            tint = TextPrimaryDark,
+                                            tint = glass.textPrimary,
                                             modifier = Modifier.size(26.dp)
                                         )
                                     }
@@ -438,13 +424,13 @@ fun MusicPlayerBottomSheet(
                                         onClick = onTogglePlayPause,
                                         modifier = Modifier.size(54.dp),
                                         colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = SportPrimary
+                                            containerColor = glass.primary,
+                                            contentColor = glass.onPrimary
                                         )
                                     ) {
                                         Icon(
                                             imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                             contentDescription = "Play/Pause",
-                                            tint = DarkBackground,
                                             modifier = Modifier.size(28.dp)
                                         )
                                     }
@@ -458,28 +444,25 @@ fun MusicPlayerBottomSheet(
                                         Icon(
                                             imageVector = Icons.Default.SkipNext,
                                             contentDescription = "Berikutnya",
-                                            tint = TextPrimaryDark,
+                                            tint = glass.textPrimary,
                                             modifier = Modifier.size(26.dp)
                                         )
                                     }
                                 }
                             } else {
-                                // Status Belum Ada Lagu Diputar
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(50.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(SportPrimary.copy(alpha = 0.15f)),
-                                        contentAlignment = Alignment.Center
+                                    GlassPill(
+                                        tint = glass.primary,
+                                        shape = RoundedCornerShape(14.dp),
+                                        modifier = Modifier.size(50.dp)
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.MusicNote,
                                             contentDescription = null,
-                                            tint = SportPrimary,
+                                            tint = glass.primary,
                                             modifier = Modifier.size(26.dp)
                                         )
                                     }
@@ -488,14 +471,14 @@ fun MusicPlayerBottomSheet(
                                         Text(
                                             text = "Belum Ada Lagu Dipilih",
                                             style = MaterialTheme.typography.titleMedium,
-                                            color = TextPrimaryDark,
+                                            color = glass.textPrimary,
                                             fontWeight = FontWeight.Bold
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text(
                                             text = "Gunakan kolom pencarian di atas untuk memutar lagu",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = TextSecondaryDark
+                                            color = glass.textSecondary
                                         )
                                     }
                                 }
@@ -504,13 +487,13 @@ fun MusicPlayerBottomSheet(
                     }
                 }
 
-                // 3. Rekomendasi / Saran Pencarian Cepat
+                // Inspirasi Musik Workout
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
                             text = "INSPIRASI MUSIK WORKOUT",
                             style = MaterialTheme.typography.labelSmall,
-                            color = TextMutedDark,
+                            color = glass.textMuted,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.5.sp
                         )
@@ -520,24 +503,25 @@ fun MusicPlayerBottomSheet(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             quickChips.take(3).forEach { chip ->
-                                Surface(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { searchQuery = chip },
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = DarkSurfaceElevated,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
+                                GlassCard(
+                                    modifier = Modifier.weight(1f),
+                                    cornerRadius = 12.dp,
+                                    onClick = { searchQuery = chip }
                                 ) {
-                                    Text(
-                                        text = chip,
+                                    Box(
                                         modifier = Modifier
+                                            .fillMaxWidth()
                                             .padding(vertical = 10.dp, horizontal = 4.dp),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = TextPrimaryDark,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                    )
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = chip,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = glass.textPrimary,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -547,64 +531,62 @@ fun MusicPlayerBottomSheet(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             quickChips.drop(3).take(3).forEach { chip ->
-                                Surface(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { searchQuery = chip },
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = DarkSurfaceElevated,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
+                                GlassCard(
+                                    modifier = Modifier.weight(1f),
+                                    cornerRadius = 12.dp,
+                                    onClick = { searchQuery = chip }
                                 ) {
-                                    Text(
-                                        text = chip,
+                                    Box(
                                         modifier = Modifier
+                                            .fillMaxWidth()
                                             .padding(vertical = 10.dp, horizontal = 4.dp),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = TextPrimaryDark,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                    )
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = chip,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = glass.textPrimary,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
 
-                // 4. Riwayat Lagu yang Baru Diputar (Jika ada)
+                // Baru Diputar
                 if (playedTracks.isNotEmpty()) {
                     item {
                         Text(
                             text = "BARU DIPUTAR (${playedTracks.size})",
                             style = MaterialTheme.typography.labelSmall,
-                            color = TextMutedDark,
+                            color = glass.textMuted,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.5.sp
                         )
                     }
 
                     items(playedTracks.reversed()) { pt ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    onPlayTrack(
-                                        Track(
-                                            id = pt.trackId,
-                                            isrc = null,
-                                            title = pt.title,
-                                            artist = pt.artist,
-                                            album = "Baru Diputar",
-                                            durationMs = 210000L,
-                                            coverUrl = null,
-                                            audioUrl = null,
-                                            platformIds = emptyMap()
-                                        )
+                        GlassCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            cornerRadius = 16.dp,
+                            onClick = {
+                                onPlayTrack(
+                                    Track(
+                                        id = pt.trackId,
+                                        isrc = null,
+                                        title = pt.title,
+                                        artist = pt.artist,
+                                        album = "Baru Diputar",
+                                        durationMs = 210000L,
+                                        coverUrl = null,
+                                        audioUrl = null,
+                                        platformIds = emptyMap()
                                     )
-                                },
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
+                                )
+                            }
                         ) {
                             Row(
                                 modifier = Modifier
@@ -621,21 +603,21 @@ fun MusicPlayerBottomSheet(
                                     Icon(
                                         imageVector = Icons.Default.History,
                                         contentDescription = null,
-                                        tint = SportPrimary,
+                                        tint = glass.primary,
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Column {
                                         Text(
                                             text = pt.title,
                                             style = MaterialTheme.typography.bodyMedium,
-                                            color = TextPrimaryDark,
+                                            color = glass.textPrimary,
                                             fontWeight = FontWeight.Bold,
                                             maxLines = 1
                                         )
                                         Text(
                                             text = pt.artist,
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = TextSecondaryDark,
+                                            color = glass.textSecondary,
                                             maxLines = 1
                                         )
                                     }
@@ -644,7 +626,7 @@ fun MusicPlayerBottomSheet(
                                 Text(
                                     text = "Putar Lagi",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = SportPrimary,
+                                    color = glass.primary,
                                     fontWeight = FontWeight.Bold
                                 )
                             }

@@ -7,15 +7,19 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stridebeat.app.presentation.navigation.StrideBeatNavGraph
 import com.stridebeat.app.presentation.settings.AuthViewModel
 import com.stridebeat.app.presentation.theme.StrideBeatTheme
+import com.stridebeat.app.presentation.theme.ThemeViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private val authViewModel: AuthViewModel by viewModels()
+    private val themeViewModel: ThemeViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,8 +29,9 @@ class MainActivity : ComponentActivity() {
         intent?.data?.let { handleDeepLink(it) }
 
         setContent {
-            StrideBeatTheme {
-                StrideBeatNavGraph()
+            val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
+            StrideBeatTheme(themeMode = themeMode) {
+                StrideBeatNavGraph(themeViewModel = themeViewModel)
             }
         }
     }

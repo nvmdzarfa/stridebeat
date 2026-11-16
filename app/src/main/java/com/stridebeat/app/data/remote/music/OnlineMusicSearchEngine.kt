@@ -59,8 +59,8 @@ object OnlineMusicSearchEngine {
                     if (rawTitle.isBlank()) continue
 
                     val userObj = item.optJSONObject("user")
-                    val artist = userObj?.optString("username", "Artis") ?: "Artis"
-                    val artwork = item.optString("artwork_url", "")
+                    val artist = if (userObj == null || userObj.isNull("username")) "Artis" else userObj.optString("username", "Artis")
+                    val artwork = if (item.isNull("artwork_url")) "" else item.optString("artwork_url", "")
 
                     val cleanTitle = cleanHtmlEntities(rawTitle)
                     val cleanArtist = cleanHtmlEntities(artist)
@@ -86,12 +86,11 @@ object OnlineMusicSearchEngine {
                         }
                     }
 
-                    val highResArtwork = if (artwork.isNotBlank()) {
-                        artwork.replace("-large.", "-t500x500.")
-                    } else {
-                        val avatar = userObj?.optString("avatar_url", "") ?: ""
-                        avatar.replace("-large.", "-t500x500.")
-                    }
+                    val rawAvatar = if (userObj == null || userObj.isNull("avatar_url")) "" else userObj.optString("avatar_url", "")
+                    val rawCover = artwork.ifBlank { rawAvatar }
+                    val highResArtwork = rawCover
+                        .replace("-large.", "-t500x500.")
+                        .replace("http://", "https://")
 
                     if (streamEndpoint.isNotBlank()) {
                         val directUrl = resolveSoundCloudStream(streamEndpoint, SOUNDCLOUD_CLIENT_ID)

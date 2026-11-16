@@ -1,7 +1,5 @@
 package com.stridebeat.app.presentation.history
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,7 +11,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -31,9 +28,10 @@ fun HistoryScreen(
     historyViewModel: HistoryViewModel = hiltViewModel()
 ) {
     val sessionList by historyViewModel.sessions.collectAsStateWithLifecycle()
+    val glass = StrideBeatGlass.colors
     var sessionToDelete by remember { mutableStateOf<WorkoutSession?>(null) }
 
-    // Dialog Konfirmasi Hapus Sesi (PRD §7.7)
+    // Dialog Konfirmasi Hapus Sesi
     if (sessionToDelete != null) {
         val s = sessionToDelete!!
         AlertDialog(
@@ -42,14 +40,15 @@ fun HistoryScreen(
                 Text(
                     text = "Hapus Sesi Ini?",
                     style = MaterialTheme.typography.titleLarge,
-                    color = StatusError
+                    color = StatusError,
+                    fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 Text(
                     text = "Data latihan ${s.type.displayName} tanggal ${SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")).format(Date(s.startedAt))} akan dihapus dari penyimpanan offline perangkat ini.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondaryDark
+                    color = glass.textSecondary
                 )
             },
             confirmButton = {
@@ -58,26 +57,28 @@ fun HistoryScreen(
                         historyViewModel.deleteSession(s.id)
                         sessionToDelete = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = StatusError)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = StatusError,
+                        contentColor = androidx.compose.ui.graphics.Color.White
+                    )
                 ) {
-                    Text("Ya, Hapus", color = TextPrimaryDark, fontWeight = FontWeight.Bold)
+                    Text("Ya, Hapus", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { sessionToDelete = null }) {
-                    Text("Batal", color = TextSecondaryDark)
+                    Text("Batal", color = glass.textSecondary)
                 }
             },
-            containerColor = DarkSurface,
-            shape = RoundedCornerShape(16.dp)
+            containerColor = glass.modalSurface,
+            shape = RoundedCornerShape(22.dp)
         )
     }
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp),
+            .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
@@ -90,25 +91,22 @@ fun HistoryScreen(
                     Text(
                         text = "Riwayat Olahraga",
                         style = MaterialTheme.typography.headlineMedium,
-                        color = TextPrimaryDark
+                        color = glass.textPrimary,
+                        fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = "Tersimpan offline di perangkat (${sessionList.size} sesi)",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondaryDark
+                        color = glass.textSecondary
                     )
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = SportPrimary.copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, SportPrimary.copy(alpha = 0.4f))
-                ) {
+                GlassPill(tint = glass.primary) {
                     Text(
                         text = "OFFLINE",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
-                        color = SportPrimary,
+                        color = glass.primary,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -117,11 +115,9 @@ fun HistoryScreen(
 
         if (sessionList.isEmpty()) {
             item {
-                Card(
+                GlassCard(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
+                    cornerRadius = 22.dp
                 ) {
                     Column(
                         modifier = Modifier
@@ -133,19 +129,19 @@ fun HistoryScreen(
                         Icon(
                             imageVector = Icons.Default.DirectionsRun,
                             contentDescription = null,
-                            tint = TextMutedDark,
+                            tint = glass.textMuted,
                             modifier = Modifier.size(44.dp)
                         )
                         Text(
                             text = "Belum Ada Riwayat Olahraga",
                             style = MaterialTheme.typography.titleMedium,
-                            color = TextPrimaryDark,
+                            color = glass.textPrimary,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             text = "Mulai olahraga pertamamu dari Beranda untuk mencatat rute dan lagu!",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondaryDark
+                            color = glass.textSecondary
                         )
                     }
                 }
@@ -168,20 +164,18 @@ private fun HistoryCardItem(
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val glass = StrideBeatGlass.colors
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID"))
     val dateString = dateFormat.format(Date(session.startedAt))
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = DarkSurface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 20.dp,
+        onClick = onClick
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -190,14 +184,12 @@ private fun HistoryCardItem(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(SportPrimary.copy(alpha = 0.2f)),
-                        contentAlignment = Alignment.Center
+                    GlassPill(
+                        tint = glass.primary,
+                        shape = CircleShape,
+                        modifier = Modifier.size(38.dp)
                     ) {
                         Icon(
                             imageVector = when (session.type) {
@@ -206,7 +198,7 @@ private fun HistoryCardItem(
                                 WorkoutType.RIDE -> Icons.Default.DirectionsBike
                             },
                             contentDescription = null,
-                            tint = SportPrimary,
+                            tint = glass.primary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -215,13 +207,13 @@ private fun HistoryCardItem(
                         Text(
                             text = session.type.displayName,
                             style = MaterialTheme.typography.titleMedium,
-                            color = TextPrimaryDark,
+                            color = glass.textPrimary,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             text = dateString,
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondaryDark
+                            color = glass.textSecondary
                         )
                     }
                 }
@@ -231,20 +223,20 @@ private fun HistoryCardItem(
                         Icon(
                             imageVector = Icons.Default.DeleteOutline,
                             contentDescription = "Hapus Sesi",
-                            tint = TextMutedDark,
+                            tint = glass.textMuted,
                             modifier = Modifier.size(18.dp)
                         )
                     }
                     Icon(
                         imageVector = Icons.Default.ArrowForward,
                         contentDescription = "Detail",
-                        tint = TextMutedDark,
+                        tint = glass.textMuted,
                         modifier = Modifier.size(16.dp)
                     )
                 }
             }
 
-            Divider(color = DarkBorder)
+            GlassDivider()
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -253,30 +245,29 @@ private fun HistoryCardItem(
                 Column {
                     Text(
                         text = String.format(Locale.US, "%.2f km", session.distanceMeters / 1000.0),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = TextPrimaryDark,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = glass.textPrimary,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = "Jarak",
                         style = MaterialTheme.typography.labelSmall,
-                        color = TextMutedDark
+                        color = glass.textMuted
                     )
                 }
 
                 Column {
                     val minutes = session.durationMs / 60000
-                    val seconds = (session.durationMs % 60000) / 1000
                     Text(
                         text = "$minutes mnt",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = TextPrimaryDark,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = glass.textPrimary,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = "Durasi",
                         style = MaterialTheme.typography.labelSmall,
-                        color = TextMutedDark
+                        color = glass.textMuted
                     )
                 }
 
@@ -286,28 +277,28 @@ private fun HistoryCardItem(
                     val paceSec = ((pace - paceMin) * 60).toInt()
                     Text(
                         text = if (pace > 0) String.format(Locale.US, "%d'%02d\"", paceMin, paceSec) else "--'--\"",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = TextPrimaryDark,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = glass.textPrimary,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Pace Rata-rata",
+                        text = "Pace",
                         style = MaterialTheme.typography.labelSmall,
-                        color = TextMutedDark
+                        color = glass.textMuted
                     )
                 }
 
                 Column {
                     Text(
                         text = "${session.playedTracks.size} lagu",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = SpotifyBrand,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = glass.primary,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = "Musik",
                         style = MaterialTheme.typography.labelSmall,
-                        color = TextMutedDark
+                        color = glass.textMuted
                     )
                 }
             }
