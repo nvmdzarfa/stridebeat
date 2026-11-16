@@ -1,10 +1,13 @@
 package com.stridebeat.app.presentation.workout.components
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -15,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -46,6 +50,9 @@ fun MusicPlayerBottomSheet(
     playedTracks: List<PlayedTrack>,
     searchResults: List<Track>,
     isSearching: Boolean,
+    youtubeMusicEnabled: Boolean = true,
+    playbackNotice: String? = null,
+    unavailableExternalUrl: String? = null,
     onTogglePlayPause: () -> Unit,
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
@@ -54,8 +61,11 @@ fun MusicPlayerBottomSheet(
     onSelectPlaylist: (WorkoutPlaylist) -> Unit,
     onPlayTrack: (Track) -> Unit,
     onSearchOnline: (String) -> Unit,
+    onDismissNotice: () -> Unit = {},
+    onPlayOnSoundCloud: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     val glass = StrideBeatGlass.colors
     var searchQuery by remember { mutableStateOf("") }
 
@@ -93,6 +103,179 @@ fun MusicPlayerBottomSheet(
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // 0. Active Source Switcher (SoundCloud ↔ YouTube Music Beta)
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "SUMBER MUSIK AKTIF",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = glass.textMuted,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        val isScActive = activeSource == MusicSource.SOUNDCLOUD
+                        GlassCard(
+                            modifier = Modifier.weight(1f),
+                            cornerRadius = 14.dp,
+                            elevated = isScActive,
+                            accentBorderColor = if (isScActive) SoundCloudBrand else null,
+                            onClick = { onSwitchSource(MusicSource.SOUNDCLOUD) }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isScActive) SoundCloudBrand else glass.textMuted)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "SoundCloud",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (isScActive) glass.textPrimary else glass.textSecondary,
+                                    fontWeight = if (isScActive) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        if (youtubeMusicEnabled) {
+                            val isYtmActive = activeSource == MusicSource.YOUTUBE_MUSIC
+                            GlassCard(
+                                modifier = Modifier.weight(1f),
+                                cornerRadius = 14.dp,
+                                elevated = isYtmActive,
+                                accentBorderColor = if (isYtmActive) YouTubeBrand else null,
+                                onClick = { onSwitchSource(MusicSource.YOUTUBE_MUSIC) }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isYtmActive) YouTubeBrand else glass.textMuted)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "YouTube Music",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (isYtmActive) glass.textPrimary else glass.textSecondary,
+                                        fontWeight = if (isYtmActive) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Beta",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = YouTubeBrand,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Notice Banner jika terjadi penolakan stream / notice
+            if (!playbackNotice.isNullOrBlank()) {
+                item {
+                    GlassCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        cornerRadius = 16.dp,
+                        accentBorderColor = StatusWarning
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.Top,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.Top,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = null,
+                                        tint = StatusWarning,
+                                        modifier = Modifier.size(18.dp).padding(top = 2.dp)
+                                    )
+                                    Text(
+                                        text = playbackNotice,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = glass.textPrimary
+                                    )
+                                }
+                                IconButton(
+                                    onClick = onDismissNotice,
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Tutup",
+                                        tint = glass.textMuted,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (activeSource == MusicSource.YOUTUBE_MUSIC) {
+                                    TextButton(
+                                        onClick = onPlayOnSoundCloud,
+                                        colors = ButtonDefaults.textButtonColors(contentColor = SoundCloudBrand)
+                                    ) {
+                                        Text("Putar di SoundCloud", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                                    }
+                                }
+                                if (!unavailableExternalUrl.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    TextButton(
+                                        onClick = {
+                                            try {
+                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(unavailableExternalUrl)).apply {
+                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                }
+                                                context.startActivity(intent)
+                                            } catch (_: Exception) {}
+                                        },
+                                        colors = ButtonDefaults.textButtonColors(contentColor = YouTubeBrand)
+                                    ) {
+                                        Text("Buka di YT Music", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // 1. Search Bar
             item {
                 OutlinedTextField(
@@ -113,7 +296,7 @@ fun MusicPlayerBottomSheet(
                     ),
                     placeholder = {
                         Text(
-                            text = "Ketik judul lagu atau artis favorit...",
+                            text = if (activeSource == MusicSource.YOUTUBE_MUSIC) "Cari lagu di YouTube Music..." else "Cari lagu di SoundCloud...",
                             fontSize = 13.sp,
                             color = glass.textMuted
                         )
@@ -233,25 +416,11 @@ fun MusicPlayerBottomSheet(
                                                 contentScale = ContentScale.Crop
                                             )
                                         }
-                                        if (isCurrent && isPlaying) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .background(Color.Black.copy(alpha = 0.5f)),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.GraphicEq,
-                                                    contentDescription = null,
-                                                    tint = glass.primary,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                            }
-                                        } else if (track.coverUrl.isNullOrBlank()) {
+                                        if (track.coverUrl.isNullOrBlank()) {
                                             Icon(
-                                                imageVector = if (isCurrent) Icons.Default.PlayArrow else Icons.Default.MusicNote,
+                                                imageVector = Icons.Default.MusicNote,
                                                 contentDescription = null,
-                                                tint = if (isCurrent) glass.primary else glass.textSecondary,
+                                                tint = glass.primary,
                                                 modifier = Modifier.size(20.dp)
                                             )
                                         }
@@ -261,12 +430,12 @@ fun MusicPlayerBottomSheet(
                                         Text(
                                             text = track.title,
                                             style = MaterialTheme.typography.bodyMedium,
-                                            color = if (isCurrent) glass.primary else glass.textPrimary,
+                                            color = glass.textPrimary,
                                             fontWeight = FontWeight.Bold,
                                             maxLines = 1
                                         )
                                         Text(
-                                            text = "${track.artist} • ${track.album ?: "Audio Asli"}",
+                                            text = "${track.artist} • ${track.album}",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = glass.textSecondary,
                                             maxLines = 1
@@ -274,13 +443,19 @@ fun MusicPlayerBottomSheet(
                                     }
                                 }
 
-                                GlassPill(tint = glass.primary, shape = RoundedCornerShape(8.dp)) {
-                                    Text(
-                                        text = if (isCurrent && isPlaying) "Memutar" else "Putar",
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = glass.primary,
-                                        fontWeight = FontWeight.Bold
+                                if (isCurrent && isPlaying) {
+                                    Icon(
+                                        imageVector = Icons.Default.GraphicEq,
+                                        contentDescription = "Playing",
+                                        tint = glass.primary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.PlayArrow,
+                                        contentDescription = "Putar",
+                                        tint = glass.textSecondary,
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
                             }
@@ -288,13 +463,24 @@ fun MusicPlayerBottomSheet(
                     }
                 }
             } else {
-                // Card Now Playing Hero
+                // 2. Sekarang Memutar
                 item {
+                    Text(
+                        text = "SEDANG MEMUTAR",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = glass.textMuted,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+
+                item {
+                    val activeColor = if (activeSource == MusicSource.SOUNDCLOUD) SoundCloudBrand else YouTubeBrand
                     GlassCard(
                         modifier = Modifier.fillMaxWidth(),
                         cornerRadius = 22.dp,
                         elevated = true,
-                        accentBorderColor = if (currentTrack != null) glass.primary else null
+                        accentBorderColor = activeColor.copy(alpha = 0.5f)
                     ) {
                         Column(
                             modifier = Modifier.padding(18.dp),
@@ -324,7 +510,7 @@ fun MusicPlayerBottomSheet(
                                             Icon(
                                                 imageVector = if (isPlaying) Icons.Default.GraphicEq else Icons.Default.MusicNote,
                                                 contentDescription = null,
-                                                tint = glass.primary,
+                                                tint = activeColor,
                                                 modifier = Modifier.size(26.dp)
                                             )
                                         }
@@ -340,7 +526,7 @@ fun MusicPlayerBottomSheet(
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text(
-                                            text = "${currentTrack.artist} • Diputar Langsung",
+                                            text = "${currentTrack.artist} • ${activeSource.displayName}",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = glass.textSecondary,
                                             maxLines = 1
@@ -372,8 +558,8 @@ fun MusicPlayerBottomSheet(
                                             onSeekTo((seekFraction * duration).toLong())
                                         },
                                         colors = SliderDefaults.colors(
-                                            thumbColor = glass.primary,
-                                            activeTrackColor = glass.primary,
+                                            thumbColor = activeColor,
+                                            activeTrackColor = activeColor,
                                             inactiveTrackColor = glass.trackBarInactive
                                         ),
                                         modifier = Modifier
@@ -424,8 +610,8 @@ fun MusicPlayerBottomSheet(
                                         onClick = onTogglePlayPause,
                                         modifier = Modifier.size(54.dp),
                                         colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = glass.primary,
-                                            contentColor = glass.onPrimary
+                                            containerColor = activeColor,
+                                            contentColor = Color.White
                                         )
                                     ) {
                                         Icon(
@@ -455,14 +641,14 @@ fun MusicPlayerBottomSheet(
                                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                                 ) {
                                     GlassPill(
-                                        tint = glass.primary,
+                                        tint = activeColor,
                                         shape = RoundedCornerShape(14.dp),
                                         modifier = Modifier.size(50.dp)
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.MusicNote,
                                             contentDescription = null,
-                                            tint = glass.primary,
+                                            tint = activeColor,
                                             modifier = Modifier.size(26.dp)
                                         )
                                     }
@@ -476,7 +662,7 @@ fun MusicPlayerBottomSheet(
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text(
-                                            text = "Gunakan kolom pencarian di atas untuk memutar lagu",
+                                            text = "Pilih playlist di bawah atau cari lagu favorit",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = glass.textSecondary
                                         )
@@ -487,7 +673,101 @@ fun MusicPlayerBottomSheet(
                     }
                 }
 
-                // Inspirasi Musik Workout
+                // 3. Playlist Workout Netral
+                if (availablePlaylists.isNotEmpty()) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(
+                                text = "PLAYLIST WORKOUT NETRAL",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = glass.textMuted,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+
+                            availablePlaylists.forEach { playlist ->
+                                val isActive = activePlaylist?.id == playlist.id
+                                GlassCard(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    cornerRadius = 16.dp,
+                                    elevated = isActive,
+                                    accentBorderColor = if (isActive) glass.primary else null,
+                                    onClick = { onSelectPlaylist(playlist) }
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(14.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(46.dp)
+                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .background(glass.glassElevatedTop),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (!playlist.coverUrl.isNullOrBlank()) {
+                                                    AsyncImage(
+                                                        model = playlist.coverUrl,
+                                                        contentDescription = playlist.name,
+                                                        modifier = Modifier.fillMaxSize(),
+                                                        contentScale = ContentScale.Crop
+                                                    )
+                                                } else {
+                                                    Icon(
+                                                        imageVector = Icons.Default.PlaylistPlay,
+                                                        contentDescription = null,
+                                                        tint = glass.primary,
+                                                        modifier = Modifier.size(24.dp)
+                                                    )
+                                                }
+                                            }
+
+                                            Column {
+                                                Text(
+                                                    text = playlist.name,
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    color = glass.textPrimary,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Text(
+                                                    text = "${playlist.tracks.size} Lagu • ${playlist.description}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = glass.textSecondary,
+                                                    maxLines = 1
+                                                )
+                                            }
+                                        }
+
+                                        FilledIconButton(
+                                            onClick = { onSelectPlaylist(playlist) },
+                                            modifier = Modifier.size(36.dp),
+                                            colors = IconButtonDefaults.filledIconButtonColors(
+                                                containerColor = if (isActive) glass.primary else glass.glassElevatedTop,
+                                                contentColor = if (isActive) glass.onPrimary else glass.textPrimary
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isActive && isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                                contentDescription = "Putar Playlist",
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 4. Inspirasi Musik Workout
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
@@ -556,7 +836,7 @@ fun MusicPlayerBottomSheet(
                     }
                 }
 
-                // Baru Diputar
+                // 5. Baru Diputar
                 if (playedTracks.isNotEmpty()) {
                     item {
                         Text(

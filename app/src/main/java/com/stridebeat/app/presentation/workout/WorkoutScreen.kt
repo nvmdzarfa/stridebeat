@@ -67,6 +67,9 @@ fun WorkoutScreen(
     val playedTracksInSession by musicViewModel.playedTracksInSession.collectAsStateWithLifecycle()
     val searchResults by musicViewModel.searchResults.collectAsStateWithLifecycle()
     val isSearching by musicViewModel.isSearching.collectAsStateWithLifecycle()
+    val youtubeMusicEnabled by musicViewModel.youtubeMusicEnabled.collectAsStateWithLifecycle()
+    val playbackNotice by musicViewModel.playbackNotice.collectAsStateWithLifecycle()
+    val unavailableExternalUrl by musicViewModel.unavailableExternalUrl.collectAsStateWithLifecycle()
 
     var selectedWorkoutType by remember { mutableStateOf(WorkoutType.RUN) }
     var showFinishDialog by remember { mutableStateOf(false) }
@@ -114,6 +117,9 @@ fun WorkoutScreen(
             playedTracks = playedTracksInSession,
             searchResults = searchResults,
             isSearching = isSearching,
+            youtubeMusicEnabled = youtubeMusicEnabled,
+            playbackNotice = playbackNotice,
+            unavailableExternalUrl = unavailableExternalUrl,
             onTogglePlayPause = { musicViewModel.togglePlayPause() },
             onSkipNext = { musicViewModel.skipNext() },
             onSkipPrevious = { musicViewModel.skipPrevious() },
@@ -122,11 +128,14 @@ fun WorkoutScreen(
             onSelectPlaylist = { playlist -> musicViewModel.selectPlaylist(playlist) },
             onPlayTrack = { track -> musicViewModel.playTrack(track) },
             onSearchOnline = { query -> musicViewModel.searchOnlineTracks(query) },
+            onDismissNotice = { musicViewModel.clearPlaybackNotice() },
+            onPlayOnSoundCloud = { musicViewModel.tryPlayCurrentTrackOnSoundCloud() },
             onDismiss = { showMusicSheet = false }
         )
     }
 
     // Dialog Konfirmasi Selesai
+
     if (showFinishDialog) {
         AlertDialog(
             onDismissRequest = { showFinishDialog = false },
@@ -595,7 +604,11 @@ fun WorkoutScreen(
             Spacer(modifier = Modifier.height(10.dp))
 
             // Interactive Mini-Player at bottom
-            val brandColor = if (activeSource == MusicSource.SPOTIFY) SpotifyBrand else YouTubeBrand
+            val (brandColor, brandName) = when (activeSource) {
+                MusicSource.SOUNDCLOUD -> SoundCloudBrand to "SoundCloud"
+                MusicSource.YOUTUBE_MUSIC -> YouTubeBrand to "YouTube Music"
+                MusicSource.SPOTIFY -> SpotifyBrand to "Spotify"
+            }
             GlassCard(
                 modifier = Modifier.fillMaxWidth(),
                 cornerRadius = 18.dp,
@@ -656,7 +669,7 @@ fun WorkoutScreen(
                                 )
                                 Text(text = "•", color = glass.textMuted, fontSize = 11.sp)
                                 Text(
-                                    text = if (activeSource == MusicSource.SPOTIFY) "Spotify" else "Musik Online",
+                                    text = brandName,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = brandColor,
                                     fontWeight = FontWeight.Bold
@@ -664,6 +677,7 @@ fun WorkoutScreen(
                             }
                         }
                     }
+
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(

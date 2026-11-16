@@ -33,12 +33,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.stridebeat.app.BuildConfig
 import com.stridebeat.app.data.local.AppThemeMode
-import com.stridebeat.app.domain.model.SpotifyAuthState
 import com.stridebeat.app.domain.model.StravaAuthState
+import com.stridebeat.app.domain.model.YouTubeMusicAuthState
 import com.stridebeat.app.presentation.profile.AccountViewModel
 import com.stridebeat.app.presentation.strava.StravaViewModel
 import com.stridebeat.app.presentation.theme.*
 import com.stridebeat.app.presentation.update.UpdateViewModel
+import com.stridebeat.app.presentation.workout.MusicViewModel
 
 @Composable
 fun SettingsScreen(
@@ -46,18 +47,21 @@ fun SettingsScreen(
     themeViewModel: ThemeViewModel = hiltViewModel(),
     updateViewModel: UpdateViewModel = hiltViewModel(),
     accountViewModel: AccountViewModel = hiltViewModel(),
-    stravaViewModel: StravaViewModel = hiltViewModel()
+    stravaViewModel: StravaViewModel = hiltViewModel(),
+    musicViewModel: MusicViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     val glass = StrideBeatGlass.colors
 
-    val spotifyState by authViewModel.spotifyState.collectAsStateWithLifecycle()
+    val youTubeMusicState by authViewModel.youTubeMusicState.collectAsStateWithLifecycle()
+    val youtubeMusicEnabled by musicViewModel.youtubeMusicEnabled.collectAsStateWithLifecycle()
     val stravaState by authViewModel.stravaState.collectAsStateWithLifecycle()
     val autoUploadStrava by stravaViewModel.autoUploadEnabled.collectAsStateWithLifecycle()
     val defaultActivityPrefix by stravaViewModel.defaultActivityPrefix.collectAsStateWithLifecycle()
     val isImportingStrava by stravaViewModel.isImporting.collectAsStateWithLifecycle()
     val stravaStatusMessage by stravaViewModel.statusMessage.collectAsStateWithLifecycle()
+
 
     val userProfile by accountViewModel.userProfile.collectAsStateWithLifecycle()
     val isSigningIn by accountViewModel.isSigningIn.collectAsStateWithLifecycle()
@@ -69,8 +73,8 @@ fun SettingsScreen(
     val isCheckingUpdate by updateViewModel.isChecking.collectAsStateWithLifecycle()
     val updateStatusMessage by updateViewModel.statusMessage.collectAsStateWithLifecycle()
 
-    var showSpotifyConfigDialog by remember { mutableStateOf(false) }
     var showStravaConfigDialog by remember { mutableStateOf(false) }
+
     var showEditStravaPrefixDialog by remember { mutableStateOf(false) }
     var stravaPrefixInput by remember { mutableStateOf("") }
     var showEditNameDialog by remember { mutableStateOf(false) }
@@ -177,38 +181,8 @@ fun SettingsScreen(
         )
     }
 
-    if (showSpotifyConfigDialog) {
-        AlertDialog(
-            onDismissRequest = { showSpotifyConfigDialog = false },
-            title = {
-                Text(
-                    text = "Konfigurasi Spotify",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = glass.textPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Text(
-                    text = "Client ID Spotify belum dikonfigurasi pada build ini. Pencarian & pemutaran lagu online tetap bisa digunakan langsung tanpa login.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = glass.textSecondary
-                )
-            },
-            confirmButton = {
-                GlassPrimaryButton(
-                    onClick = { showSpotifyConfigDialog = false },
-                    cornerRadius = 14.dp
-                ) {
-                    Text("Mengerti", fontWeight = FontWeight.Bold)
-                }
-            },
-            containerColor = glass.modalSurface,
-            shape = RoundedCornerShape(22.dp)
-        )
-    }
-
     if (showEditNameDialog) {
+
         AlertDialog(
             onDismissRequest = { showEditNameDialog = false },
             title = {
@@ -271,7 +245,7 @@ fun SettingsScreen(
             },
             text = {
                 Text(
-                    text = "Sesi Google, Strava & token Spotify di perangkat ini akan diputuskan. Data yang sudah disinkronkan di Cloud Firestore tetap aman.",
+                    text = "Sesi Google, Strava & sesi musik di perangkat ini akan diputuskan. Data yang sudah disinkronkan di Cloud Firestore tetap aman.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = glass.textSecondary
                 )
@@ -281,9 +255,11 @@ fun SettingsScreen(
                     onClick = {
                         authViewModel.disconnectStrava()
                         authViewModel.disconnectSpotify()
+                        authViewModel.disconnectYouTubeMusic()
                         accountViewModel.signOut()
                         showDeleteConfirmDialog = false
                     },
+
                     colors = ButtonDefaults.buttonColors(
                         containerColor = StatusError,
                         contentColor = Color.White
@@ -805,17 +781,19 @@ fun SettingsScreen(
             fontWeight = FontWeight.Bold
         )
 
-        SpotifyAccountCard(
-            state = spotifyState,
-            onConnect = {
-                if (spotifyState is SpotifyAuthState.MissingConfig) {
-                    showSpotifyConfigDialog = true
-                } else {
-                    authViewModel.startSpotifyLogin(context)
-                }
+        SoundCloudInfoCard()
+
+        YouTubeMusicAccountCard(
+            enabled = youtubeMusicEnabled,
+            onEnabledChanged = { enabled ->
+                musicViewModel.setYouTubeMusicEnabled(enabled)
+                authViewModel.setYouTubeMusicFeatureFlag(enabled)
             },
-            onDisconnect = { authViewModel.disconnectSpotify() }
+            state = youTubeMusicState,
+            onConnect = { authViewModel.startYouTubeMusicLogin(context) },
+            onDisconnect = { authViewModel.disconnectYouTubeMusic() }
         )
+
 
         GlassDivider()
 
@@ -955,11 +933,111 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SpotifyAccountCard(
-    state: SpotifyAuthState,
+private fun YouTubeMusicAccountCard(
+    enabled: Boolean,
+    onEnabledChanged: (Boolean) -> Unit,
+    state: YouTubeMusicAuthState,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit
 ) {
+    val glass = StrideBeatGlass.colors
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 18.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "YouTube Music",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = glass.textPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        GlassPill(tint = YouTubeBrand, shape = RoundedCornerShape(8.dp)) {
+                            Text(
+                                text = "Beta / Tidak Resmi",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = YouTubeBrand,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = if (enabled) {
+                            when (state) {
+                                is YouTubeMusicAuthState.Connected -> "Terhubung: ${state.userName}"
+                                is YouTubeMusicAuthState.Connecting -> "Menghubungkan ke Google..."
+                                is YouTubeMusicAuthState.Error -> "Gagal: ${state.message}"
+                                else -> "Mode Pencarian Publik (Beta) — Aktif tanpa login"
+                            }
+                        } else {
+                            "Nonaktif (pemutar hanya memakai SoundCloud)"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (enabled) glass.textSecondary else glass.textMuted,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = onEnabledChanged,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = YouTubeBrand,
+                        uncheckedThumbColor = glass.textMuted,
+                        uncheckedTrackColor = glass.cardBorder
+                    )
+                )
+            }
+
+            if (enabled && BuildConfig.YOUTUBE_MUSIC_OAUTH_CLIENT_ID.isNotBlank()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    if (state is YouTubeMusicAuthState.Connected) {
+                        OutlinedButton(
+                            onClick = onDisconnect,
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = StatusError),
+                            border = BorderStroke(1.dp, StatusError.copy(alpha = 0.5f))
+                        ) {
+                            Text("Putuskan Akun", style = MaterialTheme.typography.labelMedium)
+                        }
+                    } else {
+                        Button(
+                            onClick = onConnect,
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = YouTubeBrand, contentColor = Color.White)
+                        ) {
+                            Text("Hubungkan Akun Google", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SoundCloudInfoCard() {
     val glass = StrideBeatGlass.colors
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
@@ -978,112 +1056,32 @@ private fun SpotifyAccountCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "Spotify",
+                        text = "SoundCloud",
                         style = MaterialTheme.typography.titleMedium,
                         color = glass.textPrimary,
                         fontWeight = FontWeight.Bold
                     )
-                    GlassPill(tint = SpotifyBrand, shape = RoundedCornerShape(8.dp)) {
+                    GlassPill(tint = SoundCloudBrand, shape = RoundedCornerShape(8.dp)) {
                         Text(
-                            text = "Web API & SDK",
+                            text = "Sumber Utama",
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                             style = MaterialTheme.typography.labelSmall,
-                            color = SpotifyBrand,
+                            color = SoundCloudBrand,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
-
-                when (state) {
-                    is SpotifyAuthState.Connected -> {
-                        Text(
-                            text = "Terhubung: ${state.userName}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = glass.primary,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                        if (!state.isPremium) {
-                            Text(
-                                text = "Akun Free: playback penuh butuh Spotify Premium",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = StatusWarning,
-                                fontSize = 11.sp,
-                                modifier = Modifier.padding(top = 1.dp)
-                            )
-                        } else {
-                            Text(
-                                text = "Spotify Premium Aktif",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = SpotifyBrand,
-                                fontSize = 11.sp,
-                                modifier = Modifier.padding(top = 1.dp)
-                            )
-                        }
-                    }
-                    is SpotifyAuthState.TokenExpired -> {
-                        Text(
-                            text = "Sesi Spotify kedaluwarsa. Login ulang.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = StatusWarning,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-                    is SpotifyAuthState.Connecting -> {
-                        Text(
-                            text = "Sedang menghubungkan ke Spotify...",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SpotifyBrand,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-                    is SpotifyAuthState.MissingConfig -> {
-                        Text(
-                            text = "Client ID belum dikonfigurasi",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = glass.textMuted,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-                    else -> {
-                        Text(
-                            text = "Belum terhubung",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = glass.textMuted,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-                }
-            }
-
-            if (state is SpotifyAuthState.Connected) {
-                OutlinedButton(
-                    onClick = onDisconnect,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = StatusError),
-                    border = BorderStroke(1.dp, StatusError.copy(alpha = 0.5f))
-                ) {
-                    Text("Putuskan", style = MaterialTheme.typography.labelMedium)
-                }
-            } else {
-                Button(
-                    onClick = onConnect,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (state is SpotifyAuthState.TokenExpired) StatusWarning else glass.primary,
-                        contentColor = glass.onPrimary
-                    )
-                ) {
-                    Text(
-                        text = if (state is SpotifyAuthState.TokenExpired) "Login Ulang" else "Hubungkan",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                Text(
+                    text = "Aktif otomatis tanpa login. Akses katalog musik global penuh secara stabil.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = glass.textSecondary,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
             }
         }
     }
 }
+
 
 @Composable
 private fun StravaAccountCard(

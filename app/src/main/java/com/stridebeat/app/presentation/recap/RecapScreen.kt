@@ -655,7 +655,11 @@ private fun RecapStat(
 @Composable
 private fun PlayedTrackItem(track: PlayedTrack) {
     val glass = StrideBeatGlass.colors
-    val brandColor = if (track.source == MusicSource.SPOTIFY) SpotifyBrand else YouTubeBrand
+    val (brandColor, brandLabel) = when (track.source) {
+        MusicSource.SOUNDCLOUD -> SoundCloudBrand to "SoundCloud"
+        MusicSource.YOUTUBE_MUSIC -> YouTubeBrand to "YouTube Music"
+        MusicSource.SPOTIFY -> SpotifyBrand to "Spotify"
+    }
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
         cornerRadius = 16.dp
@@ -702,7 +706,7 @@ private fun PlayedTrackItem(track: PlayedTrack) {
 
             GlassPill(tint = brandColor, shape = RoundedCornerShape(8.dp)) {
                 Text(
-                    text = if (track.source == MusicSource.SPOTIFY) "Spotify" else "Online",
+                    text = brandLabel,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                     style = MaterialTheme.typography.labelSmall,
                     color = brandColor,
@@ -712,3 +716,4 @@ private fun PlayedTrackItem(track: PlayedTrack) {
         }
     }
 }
+
