@@ -221,7 +221,7 @@ fun HomeScreen(
             val sportIcon = when (lastSession.type) {
                 WorkoutType.RUN -> Icons.Default.DirectionsRun
                 WorkoutType.WALK -> Icons.Default.DirectionsWalk
-                WorkoutType.BIKE -> Icons.Default.DirectionsBike
+                WorkoutType.RIDE -> Icons.Default.DirectionsBike
             }
             val dateStr = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID")).format(Date(lastSession.startedAt))
             val durationMinutes = (lastSession.durationMs / (60 * 1000L)).coerceAtLeast(1)
