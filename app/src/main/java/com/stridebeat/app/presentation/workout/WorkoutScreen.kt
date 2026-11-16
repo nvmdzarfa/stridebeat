@@ -25,7 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import com.stridebeat.app.domain.model.MusicSource
 import com.stridebeat.app.domain.model.WorkoutSession
 import com.stridebeat.app.domain.model.WorkoutType
@@ -58,6 +59,7 @@ fun WorkoutScreen(
     val activeSource by musicViewModel.activeSource.collectAsStateWithLifecycle()
     val currentTrack by musicViewModel.currentTrack.collectAsStateWithLifecycle()
     val isMusicPlaying by musicViewModel.isPlaying.collectAsStateWithLifecycle()
+    val playbackPositionMs by musicViewModel.playbackPositionMs.collectAsStateWithLifecycle()
     val availablePlaylists by musicViewModel.availablePlaylists.collectAsStateWithLifecycle()
     val activePlaylist by musicViewModel.activePlaylist.collectAsStateWithLifecycle()
     val playedTracksInSession by musicViewModel.playedTracksInSession.collectAsStateWithLifecycle()
@@ -107,6 +109,7 @@ fun WorkoutScreen(
             activeSource = activeSource,
             currentTrack = currentTrack,
             isPlaying = isMusicPlaying,
+            playbackPositionMs = playbackPositionMs,
             availablePlaylists = availablePlaylists,
             activePlaylist = activePlaylist,
             playedTracks = playedTracksInSession,
@@ -115,6 +118,7 @@ fun WorkoutScreen(
             onTogglePlayPause = { musicViewModel.togglePlayPause() },
             onSkipNext = { musicViewModel.skipNext() },
             onSkipPrevious = { musicViewModel.skipPrevious() },
+            onSeekTo = { posMs -> musicViewModel.seekTo(posMs) },
             onSwitchSource = { newSource -> musicViewModel.switchSource(newSource) },
             onSelectPlaylist = { playlist -> musicViewModel.selectPlaylist(playlist) },
             onPlayTrack = { track -> musicViewModel.playTrack(track) },
@@ -250,7 +254,8 @@ fun WorkoutScreen(
                 RouteMapCanvas(
                     routePoints = emptyList(),
                     isGpsInterrupted = false,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    isTrackingActive = false
                 )
 
                 Surface(
@@ -307,15 +312,25 @@ fun WorkoutScreen(
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(SportPrimary.copy(alpha = 0.15f)),
+                                .background(DarkSurface),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = if (isMusicPlaying) Icons.Default.GraphicEq else Icons.Default.MusicNote,
-                                contentDescription = null,
-                                tint = SportPrimary,
-                                modifier = Modifier.size(22.dp)
-                            )
+                            if (!currentTrack?.coverUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = currentTrack?.coverUrl,
+                                    contentDescription = currentTrack?.title,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                            if (currentTrack?.coverUrl.isNullOrBlank()) {
+                                Icon(
+                                    imageVector = if (isMusicPlaying) Icons.Default.GraphicEq else Icons.Default.MusicNote,
+                                    contentDescription = null,
+                                    tint = SportPrimary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
                         }
 
                         Column {
@@ -631,20 +646,27 @@ fun WorkoutScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(40.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    if (activeSource == MusicSource.SPOTIFY) SpotifyBrand.copy(alpha = 0.2f)
-                                    else YouTubeBrand.copy(alpha = 0.2f)
-                                ),
+                                .background(DarkSurface),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = if (isMusicPlaying) Icons.Default.GraphicEq else Icons.Default.MusicNote,
-                                contentDescription = null,
-                                tint = if (activeSource == MusicSource.SPOTIFY) SpotifyBrand else YouTubeBrand,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            if (!currentTrack?.coverUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = currentTrack?.coverUrl,
+                                    contentDescription = currentTrack?.title,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                            if (currentTrack?.coverUrl.isNullOrBlank()) {
+                                Icon(
+                                    imageVector = if (isMusicPlaying) Icons.Default.GraphicEq else Icons.Default.MusicNote,
+                                    contentDescription = null,
+                                    tint = if (activeSource == MusicSource.SPOTIFY) SpotifyBrand else YouTubeBrand,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
 
                         Column {

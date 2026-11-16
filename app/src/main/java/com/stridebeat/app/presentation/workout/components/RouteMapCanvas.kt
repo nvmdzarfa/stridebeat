@@ -28,7 +28,8 @@ import com.stridebeat.app.presentation.theme.*
 fun RouteMapCanvas(
     routePoints: List<LatLng>,
     isGpsInterrupted: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isTrackingActive: Boolean = true
 ) {
     Box(
         modifier = modifier
@@ -150,45 +151,47 @@ fun RouteMapCanvas(
             }
         }
 
-        // Overlay Status Sinyal GPS
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = if (isGpsInterrupted) StatusWarning.copy(alpha = 0.2f) else DarkSurface.copy(alpha = 0.85f),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    if (isGpsInterrupted) StatusWarning.copy(alpha = 0.6f) else DarkBorder
-                )
+        // Overlay Status Sinyal GPS (hanya saat workout aktif)
+        if (isTrackingActive) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isGpsInterrupted) StatusWarning.copy(alpha = 0.2f) else DarkSurface.copy(alpha = 0.85f),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (isGpsInterrupted) StatusWarning.copy(alpha = 0.6f) else DarkBorder
+                    )
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.MyLocation,
-                        contentDescription = null,
-                        tint = if (isGpsInterrupted) StatusWarning else SportPrimary,
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Text(
-                        text = if (isGpsInterrupted) "GPS Terputus" else "OpenStreetMap • GPS Aktif",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (isGpsInterrupted) StatusWarning else SportPrimary,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MyLocation,
+                            contentDescription = null,
+                            tint = if (isGpsInterrupted) StatusWarning else SportPrimary,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Text(
+                            text = if (isGpsInterrupted) "GPS Terputus" else "OpenStreetMap • GPS Aktif",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isGpsInterrupted) StatusWarning else SportPrimary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }
 
-        // Teks Bantuan jika belum ada titik
+        // Teks Bantuan jika belum ada titik polyline
         if (routePoints.isEmpty()) {
             Column(
                 modifier = Modifier
@@ -198,16 +201,18 @@ fun RouteMapCanvas(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    text = "Mencari Sinyal GPS...",
+                    text = if (isTrackingActive) "Menunggu Pergerakan..." else "Area Peta Live Tracking",
                     style = MaterialTheme.typography.titleMedium,
                     color = TextPrimaryDark,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Rute polyline live akan tergambar saat kamu mulai bergerak",
+                    text = if (isTrackingActive) "Rute polyline live akan tergambar saat kamu mulai melangkah"
+                    else "Rute latihan dan kecepatanmu akan terekam otomatis di sini",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextMutedDark,
-                    fontSize = 11.sp
+                    fontSize = 11.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
         }

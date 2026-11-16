@@ -44,6 +44,7 @@ class MusicPlaybackService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        activeServiceInstance = this
         createNotificationChannel()
         initExoPlayer()
 
@@ -102,6 +103,7 @@ class MusicPlaybackService : Service() {
                                     val dur = duration
                                     if (dur > 0) {
                                         currentDurationMs = dur
+                                        onDurationUpdatedListener?.invoke(dur)
                                     }
                                     updateMediaSession(
                                         title = currentTitle,
@@ -125,6 +127,7 @@ class MusicPlaybackService : Service() {
                         override fun onIsPlayingChanged(isPlaying: Boolean) {
                             isPlayingState = isPlaying
                             val pos = currentPosition
+                            onPositionUpdatedListener?.invoke(pos)
                             updateMediaSession(
                                 title = currentTitle,
                                 artist = currentArtist,
@@ -143,6 +146,12 @@ class MusicPlaybackService : Service() {
                     })
                 }
         }
+    }
+
+    fun seekToPosition(posMs: Long) {
+        initExoPlayer()
+        exoPlayer?.seekTo(posMs)
+        updateMediaSession(currentTitle, currentArtist, isPlayingState, posMs, currentDurationMs)
     }
 
     private fun playAudio(url: String?) {
@@ -190,6 +199,10 @@ class MusicPlaybackService : Service() {
                 ACTION_PAUSE -> pauseAudio()
                 ACTION_SKIP_NEXT -> onSkipNextListener?.invoke()
                 ACTION_SKIP_PREVIOUS -> onSkipPreviousListener?.invoke()
+                ACTION_SEEK_TO -> {
+                    val pos = intent.getLongExtra(EXTRA_SEEK_POSITION, 0L)
+                    seekToPosition(pos)
+                }
             }
             return START_NOT_STICKY
         }
@@ -315,6 +328,9 @@ class MusicPlaybackService : Service() {
     }
 
     override fun onDestroy() {
+        if (activeServiceInstance == this) {
+            activeServiceInstance = null
+        }
         stopAudio()
         exoPlayer?.release()
         exoPlayer = null
@@ -354,9 +370,29 @@ class MusicPlaybackService : Service() {
         const val ACTION_PAUSE = "com.stridebeat.app.action.PAUSE"
         const val ACTION_SKIP_NEXT = "com.stridebeat.app.action.SKIP_NEXT"
         const val ACTION_SKIP_PREVIOUS = "com.stridebeat.app.action.SKIP_PREVIOUS"
+        const val ACTION_SEEK_TO = "com.stridebeat.app.action.SEEK_TO"
+        const val EXTRA_SEEK_POSITION = "extra_seek_position"
 
         var onSkipNextListener: (() -> Unit)? = null
         var onSkipPreviousListener: (() -> Unit)? = null
+        var onPositionUpdatedListener: ((Long) -> Unit)? = null
+        var onDurationUpdatedListener: ((Long) -> Unit)? = null
+
+        private var activeServiceInstance: MusicPlaybackService? = null
+
+        fun getCurrentPosition(): Long {
+            return activeServiceInstance?.exoPlayer?.currentPosition ?: 0L
+        }
+
+        fun seekTo(context: Context, positionMs: Long) {
+            activeServiceInstance?.seekToPosition(positionMs) ?: run {
+                val intent = Intent(context, MusicPlaybackService::class.java).apply {
+                    action = ACTION_SEEK_TO
+                    putExtra(EXTRA_SEEK_POSITION, positionMs)
+                }
+                context.startService(intent)
+            }
+        }
 
         fun update(
             context: Context,

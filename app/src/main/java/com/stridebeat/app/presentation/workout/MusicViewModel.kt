@@ -62,6 +62,12 @@ class MusicViewModel @Inject constructor(
         }
     }
 
+    fun seekTo(positionMs: Long) {
+        viewModelScope.launch {
+            musicRepository.seekTo(positionMs)
+        }
+    }
+
     fun selectPlaylist(playlist: WorkoutPlaylist) {
         viewModelScope.launch {
             musicRepository.selectPlaylist(playlist)

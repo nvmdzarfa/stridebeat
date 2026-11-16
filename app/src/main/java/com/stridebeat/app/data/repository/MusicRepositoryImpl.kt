@@ -59,6 +59,28 @@ class MusicRepositoryImpl @Inject constructor(
                 skipToPrevious()
             }
         }
+        MusicPlaybackService.onPositionUpdatedListener = { pos ->
+            _playbackPositionMs.value = pos
+        }
+        MusicPlaybackService.onDurationUpdatedListener = { dur ->
+            val track = _currentTrack.value
+            if (track != null && dur > 0 && track.durationMs != dur) {
+                _currentTrack.value = track.copy(durationMs = dur)
+            }
+        }
+
+        // Ticker periodik setiap 500ms saat sedang memutar untuk slider halus di UI
+        CoroutineScope(Dispatchers.Main).launch {
+            while (true) {
+                kotlinx.coroutines.delay(500)
+                if (_isPlaying.value) {
+                    val realPos = MusicPlaybackService.getCurrentPosition()
+                    if (realPos > 0) {
+                        _playbackPositionMs.value = realPos
+                    }
+                }
+            }
+        }
     }
 
     override suspend fun play() {
@@ -114,6 +136,7 @@ class MusicRepositoryImpl @Inject constructor(
 
     override suspend fun seekTo(positionMs: Long) {
         _playbackPositionMs.value = positionMs
+        MusicPlaybackService.seekTo(context, positionMs)
     }
 
     override suspend fun switchSource(newSource: MusicSource): Boolean {

@@ -17,7 +17,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontFamily
+import coil.compose.AsyncImage
 import com.stridebeat.app.domain.model.MusicSource
 import com.stridebeat.app.domain.model.PlayedTrack
 import com.stridebeat.app.domain.model.Track
@@ -25,12 +27,20 @@ import com.stridebeat.app.domain.model.WorkoutPlaylist
 import com.stridebeat.app.presentation.theme.*
 import kotlinx.coroutines.delay
 
+private fun formatPlaybackTime(ms: Long): String {
+    val totalSeconds = (ms / 1000).coerceAtLeast(0)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return String.format("%02d:%02d", minutes, seconds)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MusicPlayerBottomSheet(
     activeSource: MusicSource,
     currentTrack: Track?,
     isPlaying: Boolean,
+    playbackPositionMs: Long = 0L,
     availablePlaylists: List<WorkoutPlaylist>,
     activePlaylist: WorkoutPlaylist?,
     playedTracks: List<PlayedTrack>,
@@ -39,6 +49,7 @@ fun MusicPlayerBottomSheet(
     onTogglePlayPause: () -> Unit,
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
+    onSeekTo: (Long) -> Unit = {},
     onSwitchSource: (MusicSource) -> Unit,
     onSelectPlaylist: (WorkoutPlaylist) -> Unit,
     onPlayTrack: (Track) -> Unit,
@@ -215,19 +226,41 @@ fun MusicPlayerBottomSheet(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(40.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                if (isCurrent && isPlaying) SportPrimary else DarkSurfaceElevated
-                                            ),
+                                            .size(44.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(DarkSurfaceElevated),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Icon(
-                                            imageVector = if (isCurrent && isPlaying) Icons.Default.GraphicEq else Icons.Default.PlayArrow,
-                                            contentDescription = null,
-                                            tint = if (isCurrent && isPlaying) DarkBackground else TextPrimaryDark,
-                                            modifier = Modifier.size(20.dp)
-                                        )
+                                        if (!track.coverUrl.isNullOrBlank()) {
+                                            AsyncImage(
+                                                model = track.coverUrl,
+                                                contentDescription = track.title,
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                        }
+                                        if (isCurrent && isPlaying) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .background(Color.Black.copy(alpha = 0.5f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.GraphicEq,
+                                                    contentDescription = null,
+                                                    tint = SportPrimary,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        } else if (track.coverUrl.isNullOrBlank()) {
+                                            Icon(
+                                                imageVector = if (isCurrent) Icons.Default.PlayArrow else Icons.Default.MusicNote,
+                                                contentDescription = null,
+                                                tint = if (isCurrent) SportPrimary else TextSecondaryDark,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
                                     }
 
                                     Column {
@@ -287,17 +320,27 @@ fun MusicPlayerBottomSheet(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(54.dp)
+                                            .size(56.dp)
                                             .clip(RoundedCornerShape(12.dp))
-                                            .background(SportPrimary.copy(alpha = 0.2f)),
+                                            .background(DarkSurface),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Icon(
-                                            imageVector = if (isPlaying) Icons.Default.GraphicEq else Icons.Default.MusicNote,
-                                            contentDescription = null,
-                                            tint = SportPrimary,
-                                            modifier = Modifier.size(26.dp)
-                                        )
+                                        if (!currentTrack.coverUrl.isNullOrBlank()) {
+                                            AsyncImage(
+                                                model = currentTrack.coverUrl,
+                                                contentDescription = currentTrack.title,
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                        }
+                                        if (currentTrack.coverUrl.isNullOrBlank()) {
+                                            Icon(
+                                                imageVector = if (isPlaying) Icons.Default.GraphicEq else Icons.Default.MusicNote,
+                                                contentDescription = null,
+                                                tint = SportPrimary,
+                                                modifier = Modifier.size(26.dp)
+                                            )
+                                        }
                                     }
 
                                     Column(modifier = Modifier.weight(1f)) {
@@ -314,6 +357,59 @@ fun MusicPlayerBottomSheet(
                                             style = MaterialTheme.typography.bodySmall,
                                             color = TextSecondaryDark,
                                             maxLines = 1
+                                        )
+                                    }
+                                }
+
+                                var isSeeking by remember { mutableStateOf(false) }
+                                var seekFraction by remember { mutableFloatStateOf(0f) }
+
+                                val duration = currentTrack.durationMs.let { if (it > 0) it else 180_000L }
+                                val currentPosition = if (isSeeking) (seekFraction * duration).toLong() else playbackPositionMs.coerceIn(0L, duration)
+                                val progress = if (duration > 0) (currentPosition.toFloat() / duration).coerceIn(0f, 1f) else 0f
+
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Slider(
+                                        value = if (isSeeking) seekFraction else progress,
+                                        onValueChange = { fraction ->
+                                            isSeeking = true
+                                            seekFraction = fraction
+                                        },
+                                        onValueChangeFinished = {
+                                            isSeeking = false
+                                            onSeekTo((seekFraction * duration).toLong())
+                                        },
+                                        colors = SliderDefaults.colors(
+                                            thumbColor = SportPrimary,
+                                            activeTrackColor = SportPrimary,
+                                            inactiveTrackColor = DarkBorder
+                                        ),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(28.dp)
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = formatPlaybackTime(currentPosition),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = TextSecondaryDark,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontSize = 11.sp
+                                        )
+                                        Text(
+                                            text = formatPlaybackTime(duration),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = TextMutedDark,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontSize = 11.sp
                                         )
                                     }
                                 }

@@ -86,6 +86,13 @@ object OnlineMusicSearchEngine {
                         }
                     }
 
+                    val highResArtwork = if (artwork.isNotBlank()) {
+                        artwork.replace("-large.", "-t500x500.")
+                    } else {
+                        val avatar = userObj?.optString("avatar_url", "") ?: ""
+                        avatar.replace("-large.", "-t500x500.")
+                    }
+
                     if (streamEndpoint.isNotBlank()) {
                         val directUrl = resolveSoundCloudStream(streamEndpoint, SOUNDCLOUD_CLIENT_ID)
                         if (directUrl.isNotBlank()) {
@@ -95,9 +102,9 @@ object OnlineMusicSearchEngine {
                                     isrc = null,
                                     title = cleanTitle,
                                     artist = cleanArtist,
-                                    album = "SoundCloud Full",
+                                    album = "SoundCloud • Full Track",
                                     durationMs = durationMs,
-                                    coverUrl = artwork.ifBlank { null },
+                                    coverUrl = highResArtwork.ifBlank { null },
                                     audioUrl = directUrl,
                                     platformIds = mapOf(
                                         MusicSource.YOUTUBE_MUSIC to id,
