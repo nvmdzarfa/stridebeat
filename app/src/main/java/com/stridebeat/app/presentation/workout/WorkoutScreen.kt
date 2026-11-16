@@ -322,7 +322,8 @@ fun WorkoutScreen(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = if (currentTrack != null) "${currentTrack.artist} • Ketuk untuk ganti lagu" else "Ketuk untuk cari & putar lagu favoritmu",
+                                text = currentTrack?.let { "${it.artist} • Ketuk untuk ganti lagu" }
+                                    ?: "Ketuk untuk cari & putar lagu favoritmu",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = TextSecondaryDark,
                                 maxLines = 1
