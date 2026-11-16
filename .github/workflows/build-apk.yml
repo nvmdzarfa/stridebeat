@@ -42,28 +42,28 @@ jobs:
       - name: Prepare APK Output
         run: |
           mkdir -p release-output
-          cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.0.7.apk
+          cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.0.8.apk
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StrideBeat-v0.0.7
-          path: release-output/StrideBeat-v0.0.7.apk
+          name: StrideBeat-v0.0.8
+          path: release-output/StrideBeat-v0.0.8.apk
           retention-days: 30
 
       - name: Publish to GitHub Releases
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.0.7
-          name: StrideBeat v0.0.7
+          tag_name: v0.0.8
+          name: StrideBeat v0.0.8
           body: |
-            ### 🏃 StrideBeat v0.0.7 Release
-            
+            ### 🏃 StrideBeat v0.0.8 Release
+
             Unduh file `.apk` di bawah dan install di HP Android kamu:
-            - **Suara Audio Berbunyi 100%**: Mengupgrade engine pemutar ke **AndroidX Media3 ExoPlayer** (mendukung penuh HLS fMP4, progressive MP3, & AAC).
-            - **Bebas Algoritma India**: Menghapus JioSaavn sepenuhnya; hasil pencarian sekarang global, akurat (Rex Orange County, The Weeknd, Kanye, Phonk, Hindia, Pop, dll.).
-            - **Full Song Playback**: Memfilter ketat snippet pendek sehingga seluruh lagu yang diputar berdurasi penuh (3-5 menit).
-          files: release-output/StrideBeat-v0.0.7.apk
+            - **Hapus Data Dummy**: Membersihkan data contoh dan seed dari database lokal SQLite (Room).
+            - **Real Beranda & Riwayat**: Ringkasan mingguan dan kartu Sesi Terakhir kini menghitung data riil secara otomatis tanpa badge `[CONTOH]`.
+            - **Tampilan Bersih**: Menghapus label teknis seperti `(M1)` pada menu Pengaturan dan merapikan teks dialog.
+          files: release-output/StrideBeat-v0.0.8.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stridebeat.app.domain.model.MusicSource
 import com.stridebeat.app.domain.model.PlayedTrack
 import com.stridebeat.app.domain.model.WorkoutSession
@@ -28,7 +29,6 @@ import com.stridebeat.app.presentation.history.HistoryViewModel
 import com.stridebeat.app.presentation.theme.*
 import com.stridebeat.app.presentation.workout.components.RouteMapCanvas
 import com.stridebeat.app.util.GpxExporter
-import com.stridebeat.app.util.SampleData
 import com.stridebeat.app.util.TrackingUtils
 import java.util.Locale
 
@@ -39,13 +39,52 @@ fun RecapScreen(
     historyViewModel: HistoryViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val currentSession = session ?: SampleData.sampleLastSession
+    val allSessions by historyViewModel.sessions.collectAsStateWithLifecycle()
+    val currentSession = session ?: allSessions.firstOrNull()
 
     var showStravaDialog by remember { mutableStateOf(false) }
 
-    // Simpan otomatis ke Room jika sesi baru selesai (PRD §7.6)
-    LaunchedEffect(currentSession.id) {
-        historyViewModel.saveWorkoutSession(currentSession)
+    // Simpan otomatis ke Room jika sesi baru selesai dan bukan dummy
+    LaunchedEffect(currentSession?.id) {
+        currentSession?.let {
+            if (!it.id.startsWith("sample")) {
+                historyViewModel.saveWorkoutSession(it)
+            }
+        }
+    }
+
+    if (currentSession == null) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Tidak Ada Sesi Olahraga",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = TextPrimaryDark
+                )
+                Text(
+                    text = "Belum ada sesi olahraga yang tersimpan untuk ditampilkan.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondaryDark,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                Button(
+                    onClick = onDoneClick,
+                    colors = ButtonDefaults.buttonColors(containerColor = SportPrimary)
+                ) {
+                    Text("Kembali", color = DarkBackground, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        return
     }
 
     if (showStravaDialog) {

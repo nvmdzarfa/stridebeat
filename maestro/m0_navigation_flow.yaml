@@ -9,7 +9,6 @@ appId: com.stridebeat.app
 # 1. Verifikasi Layar Beranda
 - assertVisible: "Halo, Pelari!"
 - assertVisible: "MULAI OLAHRAGA"
-- assertVisible: "CONTOH"
 
 # 2. Mulai Olahraga -> Masuk ke Layar Workout
 - tapOn: "MULAI OLAHRAGA"

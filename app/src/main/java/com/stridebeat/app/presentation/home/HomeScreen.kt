@@ -10,31 +10,44 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.stridebeat.app.domain.model.WorkoutSession
+import com.stridebeat.app.domain.model.WorkoutType
 import com.stridebeat.app.presentation.theme.*
-import com.stridebeat.app.util.SampleData
+import com.stridebeat.app.util.TrackingUtils
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun HomeScreen(
     onStartWorkoutClick: () -> Unit,
-    onViewLastSessionClick: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onViewLastSessionClick: (WorkoutSession?) -> Unit,
+    onNavigateToSettings: () -> Unit,
+    homeViewModel: HomeViewModel = hiltViewModel()
 ) {
     val scrollState = rememberScrollState()
-    val weekly = SampleData.sampleWeeklySummary
-    val lastSession = SampleData.sampleLastSession
+    val uiState by homeViewModel.uiState.collectAsStateWithLifecycle()
+    val weekly = uiState.weeklyStats
+    val lastSession = uiState.lastSession
 
     Column(
         modifier = Modifier
@@ -96,7 +109,8 @@ fun HomeScreen(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Info,
@@ -105,7 +119,7 @@ fun HomeScreen(
                         modifier = Modifier.size(18.dp)
                     )
                     Text(
-                        text = "Akun musik & Strava belum terhubung",
+                        text = "Kelola Akun Musik & Strava",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextPrimaryDark
                     )
@@ -118,7 +132,7 @@ fun HomeScreen(
             }
         }
 
-        // Weekly Summary Card with clearly marked CONTOH badge
+        // Weekly Summary Card (Real data from Room Database)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -139,20 +153,6 @@ fun HomeScreen(
                         style = MaterialTheme.typography.titleLarge,
                         color = TextPrimaryDark
                     )
-                    // Sample Data Badge per PRD rule #7
-                    Surface(
-                        color = SportSecondary.copy(alpha = 0.15f),
-                        shape = RoundedCornerShape(6.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, SportSecondary.copy(alpha = 0.5f))
-                    ) {
-                        Text(
-                            text = SampleData.SAMPLE_LABEL,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SportSecondary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
                 }
 
                 Row(
@@ -160,7 +160,7 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     SummaryMetric(
-                        value = "${weekly.totalDistanceKm}",
+                        value = String.format(Locale.US, "%.1f", weekly.totalDistanceKm),
                         unit = "km",
                         label = "Total Jarak"
                     )
@@ -210,154 +210,189 @@ fun HomeScreen(
             }
         }
 
-        // Last Session Card
+        // Last Session Section
         Text(
             text = "Sesi Terakhir",
             style = MaterialTheme.typography.titleLarge,
             color = TextPrimaryDark
         )
 
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onViewLastSessionClick() },
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = DarkSurface),
-            border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+        if (lastSession != null) {
+            val sportIcon = when (lastSession.type) {
+                WorkoutType.RUN -> Icons.Default.DirectionsRun
+                WorkoutType.WALK -> Icons.Default.DirectionsWalk
+                WorkoutType.BIKE -> Icons.Default.DirectionsBike
+            }
+            val dateStr = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID")).format(Date(lastSession.startedAt))
+            val durationMinutes = (lastSession.durationMs / (60 * 1000L)).coerceAtLeast(1)
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onViewLastSessionClick(lastSession) },
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = SportPrimary.copy(alpha = 0.2f),
-                            modifier = Modifier.size(32.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.DirectionsRun,
-                                    contentDescription = null,
-                                    tint = SportPrimary,
-                                    modifier = Modifier.size(18.dp)
+                            Surface(
+                                shape = CircleShape,
+                                color = SportPrimary.copy(alpha = 0.2f),
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = sportIcon,
+                                        contentDescription = null,
+                                        tint = SportPrimary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                            Column {
+                                Text(
+                                    text = lastSession.type.displayName,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = TextPrimaryDark,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "$dateStr • $durationMinutes menit",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextSecondaryDark
                                 )
                             }
                         }
+                    }
+
+                    Divider(color = DarkBorder)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Column {
                             Text(
-                                text = "Lari Sore di GBK",
-                                style = MaterialTheme.typography.titleMedium,
+                                text = String.format(Locale.US, "%.2f km", lastSession.distanceMeters / 1000.0),
+                                style = MaterialTheme.typography.headlineSmall,
                                 color = TextPrimaryDark,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Kemarin • 32 menit",
+                                text = "Jarak",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondaryDark
+                                color = TextMutedDark
+                            )
+                        }
+
+                        Column {
+                            Text(
+                                text = TrackingUtils.formatPace(lastSession.avgPaceMinPerKm),
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = TextPrimaryDark,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Pace Rata-rata",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextMutedDark
+                            )
+                        }
+
+                        Column {
+                            Text(
+                                text = "${lastSession.caloriesKcal.toInt()} kcal",
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = TextPrimaryDark,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Kalori (estimasi)",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextMutedDark
                             )
                         }
                     }
 
-                    Surface(
-                        color = SportSecondary.copy(alpha = 0.15f),
-                        shape = RoundedCornerShape(6.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, SportSecondary.copy(alpha = 0.5f))
+                    // Music track preview
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(DarkSurfaceElevated)
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.GraphicEq,
+                            contentDescription = null,
+                            tint = SportPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
                         Text(
-                            text = SampleData.SAMPLE_LABEL,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SportSecondary,
-                            fontWeight = FontWeight.Bold
+                            text = if (lastSession.playedTracks.isNotEmpty()) {
+                                "Diputar: ${lastSession.playedTracks.size} lagu selama olahraga"
+                            } else {
+                                "Tanpa riwayat musik"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondaryDark,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            imageVector = Icons.Default.ArrowForward,
+                            contentDescription = "Buka Detail",
+                            tint = TextMutedDark,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
-
-                Divider(color = DarkBorder)
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text(
-                            text = String.format("%.2f km", lastSession.distanceMeters / 1000),
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = TextPrimaryDark,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Jarak",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextMutedDark
-                        )
-                    }
-
-                    Column {
-                        Text(
-                            text = "6'07\" /km",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = TextPrimaryDark,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Pace Rata-rata",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextMutedDark
-                        )
-                    }
-
-                    Column {
-                        Text(
-                            text = "385 kcal",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = TextPrimaryDark,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Kalori (estimasi)",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextMutedDark
-                        )
-                    }
-                }
-
-                // Music track played preview
-                Row(
+            }
+        } else {
+            // Clean empty state card when user has not recorded any workouts yet
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
+            ) {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(DarkSurfaceElevated)
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.GraphicEq,
+                        imageVector = Icons.Default.DirectionsRun,
                         contentDescription = null,
-                        tint = SpotifyBrand,
-                        modifier = Modifier.size(18.dp)
+                        tint = SportPrimary,
+                        modifier = Modifier.size(40.dp)
                     )
                     Text(
-                        text = "Diputar: 4 lagu Spotify selama lari",
+                        text = "Belum Ada Sesi Olahraga",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimaryDark
+                    )
+                    Text(
+                        text = "Tekan tombol MULAI OLAHRAGA di atas untuk mulai mencatat rute, kecepatan, dan musik kamu!",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondaryDark,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Icon(
-                        imageVector = Icons.Default.ArrowForward,
-                        contentDescription = "Buka Detail",
-                        tint = TextMutedDark,
-                        modifier = Modifier.size(16.dp)
+                        textAlign = TextAlign.Center
                     )
                 }
             }

@@ -7,7 +7,6 @@ import com.stridebeat.app.domain.model.MusicSource
 import com.stridebeat.app.domain.model.WorkoutSession
 import com.stridebeat.app.domain.model.WorkoutType
 import com.stridebeat.app.domain.repository.WorkoutRepository
-import com.stridebeat.app.util.SampleData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -24,25 +23,27 @@ class WorkoutRepositoryImpl @Inject constructor(
     private val converters = Converters()
 
     init {
-        // Inisialisasi data awal ke Room jika database masih kosong
+        // Hapus data dummy/contoh lama dari database Room jika ada
         CoroutineScope(Dispatchers.IO).launch {
-            seedSampleSessionsIfEmpty()
+            cleanUpDummySessions()
         }
     }
 
-    private suspend fun seedSampleSessionsIfEmpty() {
-        // Ambil list pertama secara langsung
-        SampleData.sampleSessionHistory.forEach { sample ->
-            val existing = workoutDao.getSessionById(sample.id)
-            if (existing == null) {
-                workoutDao.insertSession(mapToEntity(sample))
+    private suspend fun cleanUpDummySessions() {
+        try {
+            workoutDao.deleteSampleSessions()
+        } catch (_: Exception) {
+            listOf("sample_session_1", "sample_session_2", "sample_session_3", "sample-1", "sample-2", "sample-3").forEach { id ->
+                workoutDao.deleteSessionById(id)
             }
         }
     }
 
     override fun getAllSessions(): Flow<List<WorkoutSession>> {
         return workoutDao.getAllSessions().map { entities ->
-            entities.map { mapToDomain(it) }
+            entities
+                .filterNot { it.id.startsWith("sample") }
+                .map { mapToDomain(it) }
         }
     }
 

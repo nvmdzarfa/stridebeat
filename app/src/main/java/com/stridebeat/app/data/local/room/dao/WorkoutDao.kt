@@ -19,6 +19,9 @@ interface WorkoutDao {
     @Query("DELETE FROM workout_sessions WHERE id = :id")
     suspend fun deleteSessionById(id: String)
 
+    @Query("DELETE FROM workout_sessions WHERE id LIKE 'sample%'")
+    suspend fun deleteSampleSessions()
+
     @Query("DELETE FROM workout_sessions")
     suspend fun deleteAllSessions()
 }

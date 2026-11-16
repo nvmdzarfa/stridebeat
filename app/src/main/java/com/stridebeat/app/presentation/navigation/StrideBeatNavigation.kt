@@ -52,9 +52,13 @@ fun StrideBeatNavGraph(
                     onStartWorkoutClick = {
                         navController.navigate(Screen.Workout.route)
                     },
-                    onViewLastSessionClick = {
-                        activeFinishedSession = null // Menampilkan sesi terakhir default/contoh jika null
-                        navController.navigate(Screen.Recap.route)
+                    onViewLastSessionClick = { session ->
+                        if (session != null) {
+                            activeFinishedSession = session
+                            navController.navigate(Screen.Recap.route)
+                        } else {
+                            navController.navigate(Screen.History.route)
+                        }
                     },
                     onNavigateToSettings = {
                         navController.navigate(Screen.Settings.route)

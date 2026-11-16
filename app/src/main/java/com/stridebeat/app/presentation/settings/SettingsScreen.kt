@@ -55,7 +55,7 @@ fun SettingsScreen(
             text = {
                 val keyName = if (activeDialogPlatform == "Strava") "STRAVA_CLIENT_ID" else "SPOTIFY_CLIENT_ID"
                 Text(
-                    text = "Kredensial API $keyName belum diisi di file local.properties.\n\nSesuai PRD §6.5, salin templat dari local.properties.example dan isi Client ID kamu agar bisa melakukan login live.",
+                    text = "Kredensial API $activeDialogPlatform belum dikonfigurasi pada build ini. Fitur streaming musik SoundCloud/YouTube tetap bisa digunakan langsung tanpa login.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondaryDark
                 )
@@ -87,15 +87,15 @@ fun SettingsScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "Integrasi ini berstatus Beta / Tidak Resmi (PRD §6.3). Tidak meminta kata sandi Google pengguna.",
+                        text = "Integrasi pencarian dan streaming musik langsung tanpa login akun Google.",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondaryDark
                     )
                     OutlinedTextField(
                         value = ytmInputName,
                         onValueChange = { ytmInputName = it },
-                        label = { Text("Nama Pengguna / Akun") },
-                        placeholder = { Text("Contoh: Geiza") },
+                        label = { Text("Nama Pengguna") },
+                        placeholder = { Text("Nama kamu") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = YouTubeBrand,
@@ -192,7 +192,7 @@ fun SettingsScreen(
 
         // Section: Akun Terhubung
         Text(
-            text = "AKUN TERHUBUNG (M1)",
+            text = "AKUN TERHUBUNG",
             style = MaterialTheme.typography.labelMedium,
             color = SportPrimary,
             fontWeight = FontWeight.Bold

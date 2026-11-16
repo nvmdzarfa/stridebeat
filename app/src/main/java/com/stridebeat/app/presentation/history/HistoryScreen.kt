@@ -93,7 +93,7 @@ fun HistoryScreen(
                         color = TextPrimaryDark
                     )
                     Text(
-                        text = "Tersimpan offline di Room Database (${sessionList.size} sesi)",
+                        text = "Tersimpan offline di perangkat (${sessionList.size} sesi)",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondaryDark
                     )
@@ -105,7 +105,7 @@ fun HistoryScreen(
                     border = androidx.compose.foundation.BorderStroke(1.dp, SportPrimary.copy(alpha = 0.4f))
                 ) {
                     Text(
-                        text = "ROOM OFFLINE",
+                        text = "OFFLINE",
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
                         color = SportPrimary,
