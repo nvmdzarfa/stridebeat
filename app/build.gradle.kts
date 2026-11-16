@@ -28,8 +28,8 @@ android {
         applicationId = "com.stridebeat.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.0.6"
+        versionCode = 7
+        versionName = "0.0.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -106,6 +106,8 @@ dependencies {
 
     // Media & Playback (M3)
     implementation(libs.androidx.media)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.exoplayer.hls)
 
     // Hilt Dependency Injection
     implementation(libs.hilt.android)

@@ -3,8 +3,6 @@ package com.stridebeat.app.data.remote.music
 import com.stridebeat.app.domain.model.MusicSource
 import com.stridebeat.app.domain.model.Track
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -12,151 +10,35 @@ import java.net.URL
 import java.net.URLEncoder
 
 /**
- * Mesin pencarian musik online live untuk lagu penuh (Full Song Playback).
- * Mengintegrasikan JioSaavn CDN (320kbps MP4/AAC) dan SoundCloud API (HLS/MP3),
- * secara ketat memfilter klip pendek sehingga hanya lagu berdurasi PENUH (full track)
- * yang ditampilkan dan dapat diputar 100% tanpa batas 30 detik.
+ * Mesin pencarian musik global menggunakan SoundCloud API.
+ * Menghapus ketergantungan pada API regional India (JioSaavn) sehingga hasil pencarian
+ * 100% akurat dengan apa yang dicari pengguna (Rex Orange County, The Weeknd, Kanye, Phonk, Pop Hits, Hindia, dll.).
+ * Secara ketat memfilter klip pendek sehingga hanya lagu FULL SONG (durasi > 45 detik) yang ditampilkan.
  */
 object OnlineMusicSearchEngine {
 
     private const val SOUNDCLOUD_CLIENT_ID = "qLcgHhXgeEFFaSolTB9I71LBsqncsD93"
-    private const val MIN_TRACK_DURATION_MS = 45000L // Minimal 45 detik (menolak preview 30 detik)
+    private const val MIN_TRACK_DURATION_MS = 45000L // Minimal 45 detik (menolak snippet 30 detik)
 
     suspend fun searchTracks(query: String): List<Track> = withContext(Dispatchers.IO) {
         val trimmed = query.trim()
         if (trimmed.isBlank()) return@withContext emptyList()
 
-        val results = mutableListOf<Track>()
-        val seenSignatures = mutableSetOf<String>()
-
-        // Jalankan pencarian JioSaavn dan SoundCloud secara paralel (concurrent)
-        coroutineScope {
-            val saavnDeferred = async { searchJioSaavn(trimmed) }
-            val soundCloudDeferred = async { searchSoundCloud(trimmed) }
-
-            val saavnTracks = saavnDeferred.await()
-            val soundCloudTracks = soundCloudDeferred.await()
-
-            // 1. Masukkan hasil Saavn terlebih dahulu (kualitas studio 320kbps)
-            for (track in saavnTracks) {
-                if (track.durationMs > MIN_TRACK_DURATION_MS) {
-                    val sig = (track.title + "_" + track.artist).lowercase()
-                    if (seenSignatures.add(sig)) {
-                        results.add(track)
-                    }
-                }
-            }
-
-            // 2. Gabungkan hasil SoundCloud (untuk indie, Rex Orange County, pop, phonk full length)
-            for (track in soundCloudTracks) {
-                if (track.durationMs > MIN_TRACK_DURATION_MS) {
-                    val sig = (track.title + "_" + track.artist).lowercase()
-                    if (seenSignatures.add(sig)) {
-                        results.add(track)
-                    }
-                }
-            }
-        }
-
-        return@withContext results
-    }
-
-    private fun searchJioSaavn(query: String): List<Track> {
-        val list = mutableListOf<Track>()
-        val endpoints = listOf(
-            "https://saavn.sumit.co/api/search/songs?query=",
-            "https://saavn.me/search/songs?query="
-        )
-
-        for (base in endpoints) {
-            try {
-                val encoded = URLEncoder.encode(query, "UTF-8")
-                val url = URL(base + encoded)
-                val connection = (url.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "GET"
-                    connectTimeout = 5000
-                    readTimeout = 5000
-                    setRequestProperty("User-Agent", "Mozilla/5.0")
-                    setRequestProperty("Accept", "application/json")
-                }
-
-                if (connection.responseCode == 200) {
-                    val body = connection.inputStream.bufferedReader().use { it.readText() }
-                    val json = JSONObject(body)
-                    val data = json.optJSONObject("data") ?: continue
-                    val array = data.optJSONArray("results") ?: continue
-
-                    for (i in 0 until array.length()) {
-                        val item = array.optJSONObject(i) ?: continue
-                        val duration = item.optInt("duration", 0) * 1000L
-                        // Lewati jika lagu pendek / preview
-                        if (duration <= MIN_TRACK_DURATION_MS) continue
-
-                        val id = item.optString("id")
-                        val rawTitle = item.optString("name")
-                        if (rawTitle.isBlank()) continue
-
-                        var artist = "Artis Musik"
-                        val artistsObj = item.optJSONObject("artists")
-                        val primaryArtists = artistsObj?.optJSONArray("primary")
-                        if (primaryArtists != null && primaryArtists.length() > 0) {
-                            artist = primaryArtists.optJSONObject(0)?.optString("name") ?: artist
-                        }
-
-                        val albumObj = item.optJSONObject("album")
-                        val album = albumObj?.optString("name") ?: "Lagu Penuh"
-
-                        var coverUrl = ""
-                        val imgArray = item.optJSONArray("image")
-                        if (imgArray != null && imgArray.length() > 0) {
-                            coverUrl = imgArray.optJSONObject(imgArray.length() - 1)?.optString("url") ?: ""
-                        }
-
-                        var audioUrl = ""
-                        val dlArray = item.optJSONArray("downloadUrl")
-                        if (dlArray != null && dlArray.length() > 0) {
-                            audioUrl = dlArray.optJSONObject(dlArray.length() - 1)?.optString("url") ?: ""
-                        }
-
-                        if (audioUrl.isNotBlank()) {
-                            list.add(
-                                Track(
-                                    id = "saavn_$id",
-                                    isrc = null,
-                                    title = cleanHtmlEntities(rawTitle),
-                                    artist = cleanHtmlEntities(artist),
-                                    album = cleanHtmlEntities(album),
-                                    durationMs = duration,
-                                    coverUrl = coverUrl.ifBlank { null },
-                                    audioUrl = audioUrl,
-                                    platformIds = mapOf(
-                                        MusicSource.YOUTUBE_MUSIC to id,
-                                        MusicSource.SPOTIFY to id
-                                    )
-                                )
-                            )
-                        }
-                    }
-
-                    if (list.isNotEmpty()) break
-                }
-            } catch (e: Exception) {
-                continue
-            }
-        }
-        return list
+        return@withContext searchSoundCloud(trimmed)
     }
 
     private fun searchSoundCloud(query: String): List<Track> {
         val list = mutableListOf<Track>()
+        val seenSignatures = mutableSetOf<String>()
+
         try {
             val encoded = URLEncoder.encode(query, "UTF-8")
-            val searchUrl = "https://api-v2.soundcloud.com/search/tracks?q=$encoded&client_id=$SOUNDCLOUD_CLIENT_ID&limit=8"
+            val searchUrl = "https://api-v2.soundcloud.com/search/tracks?q=$encoded&client_id=$SOUNDCLOUD_CLIENT_ID&limit=20"
             val connection = (URL(searchUrl).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
-                connectTimeout = 5000
-                readTimeout = 5000
-                setRequestProperty("User-Agent", "Mozilla/5.0")
+                connectTimeout = 6000
+                readTimeout = 6000
+                setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
                 setRequestProperty("Accept", "application/json")
             }
 
@@ -168,7 +50,8 @@ object OnlineMusicSearchEngine {
                 for (i in 0 until collection.length()) {
                     val item = collection.optJSONObject(i) ?: continue
                     val durationMs = item.optLong("duration", 0L)
-                    // HANYA ambil lagu dengan durasi > 45 detik (menolak preview 30 detik)
+
+                    // HANYA ambil lagu dengan durasi > 45 detik (menolak snippet preview 30 detik)
                     if (durationMs <= MIN_TRACK_DURATION_MS) continue
 
                     val id = item.optString("id", "")
@@ -178,6 +61,12 @@ object OnlineMusicSearchEngine {
                     val userObj = item.optJSONObject("user")
                     val artist = userObj?.optString("username", "Artis") ?: "Artis"
                     val artwork = item.optString("artwork_url", "")
+
+                    val cleanTitle = cleanHtmlEntities(rawTitle)
+                    val cleanArtist = cleanHtmlEntities(artist)
+                    val sig = (cleanTitle + "_" + cleanArtist).lowercase()
+
+                    if (!seenSignatures.add(sig)) continue
 
                     val mediaObj = item.optJSONObject("media")
                     val transcodings = mediaObj?.optJSONArray("transcodings") ?: continue
@@ -204,8 +93,8 @@ object OnlineMusicSearchEngine {
                                 Track(
                                     id = "sc_$id",
                                     isrc = null,
-                                    title = cleanHtmlEntities(rawTitle),
-                                    artist = cleanHtmlEntities(artist),
+                                    title = cleanTitle,
+                                    artist = cleanArtist,
                                     album = "SoundCloud Full",
                                     durationMs = durationMs,
                                     coverUrl = artwork.ifBlank { null },
@@ -218,6 +107,9 @@ object OnlineMusicSearchEngine {
                             )
                         }
                     }
+
+                    // Cukup ambil 10-12 lagu terbaik agar respon cepat
+                    if (list.size >= 12) break
                 }
             }
         } catch (e: Exception) {

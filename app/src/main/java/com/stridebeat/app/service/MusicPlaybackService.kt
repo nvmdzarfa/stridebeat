@@ -7,8 +7,6 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
-import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
@@ -17,20 +15,26 @@ import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import androidx.core.app.NotificationCompat
 import androidx.media.app.NotificationCompat.MediaStyle
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
 import com.stridebeat.app.MainActivity
 import com.stridebeat.app.R
 import com.stridebeat.app.domain.model.MusicSource
 import com.stridebeat.app.domain.model.Track
 
 /**
- * Service pemutar musik latar belakang menggunakan Android Native MediaPlayer.
- * Memutar langsung stream audio HTTPS (MP4 AAC 320kbps dari JioSaavn & HLS/MP3 dari SoundCloud)
- * secara lancar 100% tanpa batas, terintegrasi penuh dengan MediaSessionCompat & lockscreen Android.
+ * Service pemutar musik latar belakang menggunakan AndroidX Media3 ExoPlayer.
+ * Mendukung penuh pemutaran audio HLS (fMP4 / AAC), progressive MP3, dan streaming cloud lainnya
+ * secara lancar 100% dengan suara nyata tanpa batas 30 detik.
  */
 class MusicPlaybackService : Service() {
 
     private lateinit var mediaSession: MediaSessionCompat
-    private var mediaPlayer: MediaPlayer? = null
+    private var exoPlayer: ExoPlayer? = null
 
     private var currentPlayingUrl: String? = null
     private var currentTitle: String = "StrideBeat Music"
@@ -41,7 +45,7 @@ class MusicPlaybackService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        initMediaPlayer()
+        initExoPlayer()
 
         mediaSession = MediaSessionCompat(this, "StrideBeatMediaSession").apply {
             setFlags(
@@ -71,12 +75,8 @@ class MusicPlaybackService : Service() {
                 }
 
                 override fun onSeekTo(pos: Long) {
-                    try {
-                        mediaPlayer?.seekTo(pos.toInt())
-                        updateMediaSession(currentTitle, currentArtist, isPlayingState, pos, currentDurationMs)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
+                    exoPlayer?.seekTo(pos)
+                    updateMediaSession(currentTitle, currentArtist, isPlayingState, pos, currentDurationMs)
                 }
             })
 
@@ -84,69 +84,82 @@ class MusicPlaybackService : Service() {
         }
     }
 
-    private fun initMediaPlayer() {
-        if (mediaPlayer == null) {
-            mediaPlayer = MediaPlayer().apply {
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
-                        .build()
-                )
-                setOnPreparedListener { mp ->
-                    try {
-                        mp.start()
-                        isPlayingState = true
-                        val mpDuration = mp.duration.toLong()
-                        if (mpDuration > 0) {
-                            currentDurationMs = mpDuration
+    private fun initExoPlayer() {
+        if (exoPlayer == null) {
+            val audioAttributes = AudioAttributes.Builder()
+                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                .setUsage(C.USAGE_MEDIA)
+                .build()
+
+            exoPlayer = ExoPlayer.Builder(this)
+                .setAudioAttributes(audioAttributes, true)
+                .setHandleAudioBecomingNoisy(true)
+                .build().apply {
+                    addListener(object : Player.Listener {
+                        override fun onPlaybackStateChanged(playbackState: Int) {
+                            when (playbackState) {
+                                Player.STATE_READY -> {
+                                    val dur = duration
+                                    if (dur > 0) {
+                                        currentDurationMs = dur
+                                    }
+                                    updateMediaSession(
+                                        title = currentTitle,
+                                        artist = currentArtist,
+                                        isPlaying = isPlaying,
+                                        positionMs = currentPosition,
+                                        durationMs = currentDurationMs
+                                    )
+                                    updateNotification(isPlaying = isPlaying)
+                                }
+                                Player.STATE_ENDED -> {
+                                    isPlayingState = false
+                                    updateMediaSession(currentTitle, currentArtist, false, currentDurationMs, currentDurationMs)
+                                    updateNotification(isPlaying = false)
+                                    onSkipNextListener?.invoke()
+                                }
+                                else -> {}
+                            }
                         }
-                        updateMediaSession(
-                            title = currentTitle,
-                            artist = currentArtist,
-                            isPlaying = true,
-                            positionMs = 0L,
-                            durationMs = currentDurationMs
-                        )
-                        updateNotification(isPlaying = true)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
+
+                        override fun onIsPlayingChanged(isPlaying: Boolean) {
+                            isPlayingState = isPlaying
+                            val pos = currentPosition
+                            updateMediaSession(
+                                title = currentTitle,
+                                artist = currentArtist,
+                                isPlaying = isPlaying,
+                                positionMs = pos,
+                                durationMs = currentDurationMs
+                            )
+                            updateNotification(isPlaying = isPlaying)
+                        }
+
+                        override fun onPlayerError(error: PlaybackException) {
+                            error.printStackTrace()
+                            isPlayingState = false
+                            updateNotification(isPlaying = false)
+                        }
+                    })
                 }
-                setOnCompletionListener {
-                    isPlayingState = false
-                    updateMediaSession(currentTitle, currentArtist, false, currentDurationMs, currentDurationMs)
-                    updateNotification(isPlaying = false)
-                    onSkipNextListener?.invoke()
-                }
-                setOnErrorListener { _, _, _ ->
-                    isPlayingState = false
-                    true
-                }
-            }
         }
     }
 
     private fun playAudio(url: String?) {
         if (url.isNullOrBlank()) return
 
-        initMediaPlayer()
+        initExoPlayer()
         if (currentPlayingUrl != url) {
             currentPlayingUrl = url
             try {
-                mediaPlayer?.reset()
-                mediaPlayer?.setDataSource(this@MusicPlaybackService, Uri.parse(url))
-                mediaPlayer?.prepareAsync()
-            } catch (e: Exception) {
-                try {
-                    mediaPlayer?.release()
-                    mediaPlayer = null
-                    initMediaPlayer()
-                    mediaPlayer?.setDataSource(this@MusicPlaybackService, Uri.parse(url))
-                    mediaPlayer?.prepareAsync()
-                } catch (e2: Exception) {
-                    e2.printStackTrace()
+                val mediaItem = MediaItem.fromUri(Uri.parse(url))
+                exoPlayer?.apply {
+                    setMediaItem(mediaItem)
+                    prepare()
+                    play()
                 }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         } else {
             resumeAudio()
@@ -154,44 +167,18 @@ class MusicPlaybackService : Service() {
     }
 
     private fun resumeAudio() {
-        try {
-            if (mediaPlayer != null && !mediaPlayer!!.isPlaying) {
-                mediaPlayer?.start()
-                isPlayingState = true
-                val pos = mediaPlayer?.currentPosition?.toLong() ?: 0L
-                updateMediaSession(currentTitle, currentArtist, true, pos, currentDurationMs)
-                updateNotification(isPlaying = true)
-            }
-        } catch (e: Exception) {
-            currentPlayingUrl?.let { url ->
-                currentPlayingUrl = null
-                playAudio(url)
-            }
-        }
+        initExoPlayer()
+        exoPlayer?.play()
     }
 
     private fun pauseAudio() {
-        try {
-            if (mediaPlayer != null && mediaPlayer!!.isPlaying) {
-                mediaPlayer?.pause()
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        isPlayingState = false
-        val pos = try { mediaPlayer?.currentPosition?.toLong() ?: 0L } catch (_: Exception) { 0L }
-        updateMediaSession(currentTitle, currentArtist, false, pos, currentDurationMs)
-        updateNotification(isPlaying = false)
+        exoPlayer?.pause()
     }
 
     private fun stopAudio() {
-        try {
-            mediaPlayer?.stop()
-            mediaPlayer?.reset()
-            currentPlayingUrl = null
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        exoPlayer?.stop()
+        exoPlayer?.clearMediaItems()
+        currentPlayingUrl = null
         isPlayingState = false
     }
 
@@ -329,8 +316,8 @@ class MusicPlaybackService : Service() {
 
     override fun onDestroy() {
         stopAudio()
-        mediaPlayer?.release()
-        mediaPlayer = null
+        exoPlayer?.release()
+        exoPlayer = null
         mediaSession.release()
         super.onDestroy()
     }
