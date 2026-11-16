@@ -3,6 +3,7 @@ package com.stridebeat.app.data.repository
 import com.stridebeat.app.data.local.room.converter.Converters
 import com.stridebeat.app.data.local.room.dao.WorkoutDao
 import com.stridebeat.app.data.local.room.entity.WorkoutSessionEntity
+import com.stridebeat.app.data.remote.firebase.FirebaseSyncManager
 import com.stridebeat.app.domain.model.MusicSource
 import com.stridebeat.app.domain.model.WorkoutSession
 import com.stridebeat.app.domain.model.WorkoutType
@@ -17,13 +18,13 @@ import javax.inject.Singleton
 
 @Singleton
 class WorkoutRepositoryImpl @Inject constructor(
-    private val workoutDao: WorkoutDao
+    private val workoutDao: WorkoutDao,
+    private val firebaseSyncManager: FirebaseSyncManager
 ) : WorkoutRepository {
 
     private val converters = Converters()
 
     init {
-        // Hapus data dummy/contoh lama dari database Room jika ada
         CoroutineScope(Dispatchers.IO).launch {
             cleanUpDummySessions()
         }
@@ -53,11 +54,14 @@ class WorkoutRepositoryImpl @Inject constructor(
     }
 
     override suspend fun saveSession(session: WorkoutSession) {
-        workoutDao.insertSession(mapToEntity(session))
+        val entity = mapToEntity(session)
+        workoutDao.insertSession(entity)
+        firebaseSyncManager.uploadWorkoutEntity(entity)
     }
 
     override suspend fun deleteSession(id: String) {
         workoutDao.deleteSessionById(id)
+        firebaseSyncManager.deleteWorkoutFromCloud(id)
     }
 
     private fun mapToEntity(session: WorkoutSession): WorkoutSessionEntity {

@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Debug APK
+    name: Build StrideBeat APK
     runs-on: ubuntu-latest
 
     steps:
@@ -33,38 +33,78 @@ jobs:
           echo "SPOTIFY_CLIENT_ID=11f00fd3daf04d1a9c6b38594a26005a" >> local.properties
           echo "SPOTIFY_REDIRECT_URI=stridebeat://spotify-callback" >> local.properties
 
+      - name: Decode Firebase google-services.json
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > app/google-services.json
+            echo "HAS_GOOGLE_SERVICES=true" >> "$GITHUB_ENV"
+            echo "✅ google-services.json decoded from secret"
+          elif [ -f app/google-services.json ]; then
+            echo "HAS_GOOGLE_SERVICES=true" >> "$GITHUB_ENV"
+            echo "✅ app/google-services.json already present"
+          else
+            echo "HAS_GOOGLE_SERVICES=false" >> "$GITHUB_ENV"
+            echo "⚠️ GOOGLE_SERVICES_JSON_BASE64 secret not set yet — Firebase Auth/Firestore inactive in this build"
+          fi
+
+      - name: Decode Release Keystore
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: |
+          if [ -n "$SIGNING_KEYSTORE_BASE64" ] && [ -n "$SIGNING_STORE_PASSWORD" ] && [ -n "$SIGNING_KEY_ALIAS" ] && [ -n "$SIGNING_KEY_PASSWORD" ]; then
+            KEYSTORE_FILE="${{ runner.temp }}/stridebeat-release.jks"
+            echo "$SIGNING_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_FILE"
+            echo "SIGNING_KEYSTORE_PATH=$KEYSTORE_FILE" >> "$GITHUB_ENV"
+            echo "SIGNING_STORE_PASSWORD=$SIGNING_STORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "SIGNING_KEY_ALIAS=$SIGNING_KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "SIGNING_KEY_PASSWORD=$SIGNING_KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "IS_SIGNED_RELEASE=true" >> "$GITHUB_ENV"
+            echo "✅ Release signing keystore configured"
+          else
+            echo "IS_SIGNED_RELEASE=false" >> "$GITHUB_ENV"
+            echo "⚠️ Release signing secrets not set yet — falling back to Debug APK verification build"
+          fi
+
       - name: Grant Execute Permission for Gradlew
         run: chmod +x gradlew
 
-      - name: Build Debug APK with Gradle
-        run: ./gradlew assembleDebug --stacktrace
-
-      - name: Prepare APK Output
+      - name: Build APK with Gradle
         run: |
           mkdir -p release-output
-          cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.0.10.apk
+          if [ "$IS_SIGNED_RELEASE" = "true" ]; then
+            ./gradlew assembleRelease --stacktrace
+            cp app/build/outputs/apk/release/app-release.apk release-output/StrideBeat-v0.0.11.apk
+          else
+            ./gradlew assembleDebug --stacktrace
+            cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.0.11-debug.apk
+          fi
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StrideBeat-v0.0.10
-          path: release-output/StrideBeat-v0.0.10.apk
+          name: StrideBeat-v0.0.11
+          path: release-output/*.apk
           retention-days: 30
 
       - name: Publish to GitHub Releases
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && env.IS_SIGNED_RELEASE == 'true' && env.HAS_GOOGLE_SERVICES == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.0.10
-          name: StrideBeat v0.0.10
+          tag_name: v0.0.11
+          name: StrideBeat v0.0.11
           body: |
-            ### 🏃 StrideBeat v0.0.10 Release
+            ### 🏃 StrideBeat v0.0.11 Release
 
-            Unduh file `.apk` di bawah dan install langsung di smartphone Android kamu:
-            - ✨ **Desain Baru Glassmorphism**: Tampilan modern serba transparan dengan efek kaca frosted, border specular, dan latar aurora mesh di seluruh halaman serta floating bottom navbar.
-            - 🌗 **Switch Dark Mode & Light Mode**: Kini bisa gonta-ganti tema Gelap, Terang, atau Ikuti Sistem dari Pengaturan maupun tombol cepat di Beranda.
-            - 🖼️ **Cover Lagu di Notifikasi Bar**: Album art lagu kini tampil langsung di media notification & lock screen Android.
-            - 🔔 **Notifikasi & Popup Update**: Fitur pengecekan versi otomatis dengan notifikasi sistem dan dialog popup pembaruan di dalam aplikasi.
-          files: release-output/StrideBeat-v0.0.10.apk
+            Unduh file `.apk` di bawah dan install di smartphone Android kamu:
+            - ⚡ **Navigasi Instan Tanpa Delay**: Perpindahan tab di bottom bar kini langsung responsif tanpa jeda transisi 700ms.
+            - 👤 **Login Google & Cloud Sync (Firestore)**: Sapaan nama pribadi di Beranda (`Halo, <Nama>!`), ubah nama langsung, dan sinkronisasi otomatis profil + riwayat olahraga ke Cloud Firestore.
+            - 🧹 **Pembersihan Integrasi Mati**: Kartu Strava OAuth dan YouTube Music (Beta) dihapus dari Pengaturan agar lebih ringkas (Spotify & ekspor GPX tetap ada).
+            - 🔐 **Signed Release Keystore Permanen**: Setelah meng-install `v0.0.11`, update ke `v0.0.12` dan seterusnya bisa langsung ditimpa tanpa uninstall! *(Catatan: khusus transisi dari `v0.0.10` debug ke `v0.0.11` release perlu 1x uninstall terakhir).*
+          files: release-output/StrideBeat-v0.0.11.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

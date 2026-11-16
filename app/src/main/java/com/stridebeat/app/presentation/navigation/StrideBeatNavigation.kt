@@ -1,5 +1,7 @@
 package com.stridebeat.app.presentation.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -21,6 +23,7 @@ import androidx.navigation.compose.rememberNavController
 import com.stridebeat.app.presentation.history.HistoryScreen
 import com.stridebeat.app.presentation.home.HomeScreen
 import com.stridebeat.app.presentation.navigation.components.BottomNavBar
+import com.stridebeat.app.presentation.profile.AccountViewModel
 import com.stridebeat.app.presentation.recap.RecapScreen
 import com.stridebeat.app.presentation.settings.SettingsScreen
 import com.stridebeat.app.presentation.theme.GlassMeshBackground
@@ -33,7 +36,8 @@ import com.stridebeat.app.presentation.workout.WorkoutScreen
 fun StrideBeatNavGraph(
     navController: NavHostController = rememberNavController(),
     themeViewModel: ThemeViewModel = hiltViewModel(),
-    updateViewModel: UpdateViewModel = hiltViewModel()
+    updateViewModel: UpdateViewModel = hiltViewModel(),
+    accountViewModel: AccountViewModel = hiltViewModel()
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -50,10 +54,9 @@ fun StrideBeatNavGraph(
         )
     }
 
-    // Tampilkan BottomBar pada layar utama
-    val shouldShowBottomBar = currentRoute in Screen.bottomNavScreens.map { it.route }
+    val bottomNavRoutes = remember { Screen.bottomNavScreens.map { it.route }.toSet() }
+    val shouldShowBottomBar = currentRoute in bottomNavRoutes
 
-    // State sesi aktif untuk diteruskan ke RecapScreen
     var activeFinishedSession by remember { mutableStateOf<com.stridebeat.app.domain.model.WorkoutSession?>(null) }
 
     GlassMeshBackground {
@@ -69,7 +72,11 @@ fun StrideBeatNavGraph(
             NavHost(
                 navController = navController,
                 startDestination = Screen.Home.route,
-                modifier = Modifier.padding(innerPadding)
+                modifier = Modifier.padding(innerPadding),
+                enterTransition = { EnterTransition.None },
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { ExitTransition.None }
             ) {
                 composable(Screen.Home.route) {
                     HomeScreen(
@@ -87,7 +94,8 @@ fun StrideBeatNavGraph(
                         onNavigateToSettings = {
                             navController.navigate(Screen.Settings.route)
                         },
-                        themeViewModel = themeViewModel
+                        themeViewModel = themeViewModel,
+                        accountViewModel = accountViewModel
                     )
                 }
 
@@ -126,7 +134,8 @@ fun StrideBeatNavGraph(
                 composable(Screen.Settings.route) {
                     SettingsScreen(
                         themeViewModel = themeViewModel,
-                        updateViewModel = updateViewModel
+                        updateViewModel = updateViewModel,
+                        accountViewModel = accountViewModel
                     )
                 }
             }

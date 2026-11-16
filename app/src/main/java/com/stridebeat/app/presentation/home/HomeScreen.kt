@@ -8,30 +8,38 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.stridebeat.app.data.local.AppThemeMode
 import com.stridebeat.app.domain.model.WorkoutSession
 import com.stridebeat.app.domain.model.WorkoutType
+import com.stridebeat.app.presentation.profile.AccountViewModel
 import com.stridebeat.app.presentation.theme.*
 import com.stridebeat.app.util.TrackingUtils
 import java.text.SimpleDateFormat
@@ -44,17 +52,85 @@ fun HomeScreen(
     onViewLastSessionClick: (WorkoutSession?) -> Unit,
     onNavigateToSettings: () -> Unit,
     homeViewModel: HomeViewModel = hiltViewModel(),
-    themeViewModel: ThemeViewModel = hiltViewModel()
+    themeViewModel: ThemeViewModel = hiltViewModel(),
+    accountViewModel: AccountViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val scrollState = rememberScrollState()
     val uiState by homeViewModel.uiState.collectAsStateWithLifecycle()
     val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
+    val userProfile by accountViewModel.userProfile.collectAsStateWithLifecycle()
+    val isSigningIn by accountViewModel.isSigningIn.collectAsStateWithLifecycle()
+
     val glass = StrideBeatGlass.colors
     val systemDark = isSystemInDarkTheme()
     val isCurrentlyDark = when (themeMode) {
         AppThemeMode.DARK -> true
         AppThemeMode.LIGHT -> false
         AppThemeMode.SYSTEM -> systemDark
+    }
+
+    var showNameDialog by remember { mutableStateOf(false) }
+    var nameInput by remember { mutableStateOf("") }
+
+    if (showNameDialog) {
+        AlertDialog(
+            onDismissRequest = { showNameDialog = false },
+            title = {
+                Text(
+                    text = "Ubah Nama Panggilan",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = glass.textPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = if (userProfile.isGoogleSignedIn)
+                            "Nama ini akan disinkronkan ke akun Google Cloud kamu."
+                        else
+                            "Atur nama yang tampil di Beranda (bisa disinkronkan kapan saja setelah login Google).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = glass.textSecondary
+                    )
+                    OutlinedTextField(
+                        value = nameInput,
+                        onValueChange = { nameInput = it },
+                        label = { Text("Nama Kamu") },
+                        placeholder = { Text("Contoh: Zaru") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = glass.primary,
+                            focusedLabelColor = glass.primary,
+                            focusedTextColor = glass.textPrimary,
+                            unfocusedTextColor = glass.textPrimary,
+                            cursorColor = glass.primary
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                GlassPrimaryButton(
+                    onClick = {
+                        if (nameInput.isNotBlank()) {
+                            accountViewModel.updateDisplayName(nameInput)
+                        }
+                        showNameDialog = false
+                    },
+                    cornerRadius = 14.dp
+                ) {
+                    Text("Simpan", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNameDialog = false }) {
+                    Text("Batal", color = glass.textSecondary)
+                }
+            },
+            containerColor = glass.modalSurface,
+            shape = RoundedCornerShape(22.dp)
+        )
     }
 
     val weekly = uiState.weeklyStats
@@ -67,23 +143,46 @@ fun HomeScreen(
             .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Header: Greeting + Theme Quick Toggle + Profile Pill
+        // Header: Personalized Greeting + Theme Quick Toggle + Avatar Profile
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "Halo, ${userProfile.firstName}!",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = glass.textPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(
+                        onClick = {
+                            nameInput = userProfile.displayName
+                            showNameDialog = true
+                        },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Ubah Nama",
+                            tint = glass.textMuted,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
                 Text(
-                    text = "Halo, Pelari!",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = glass.textPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Siap taklukkan rute dan ritme hari ini?",
+                    text = if (userProfile.isGoogleSignedIn)
+                        "Cloud Sync Aktif • ${userProfile.email}"
+                    else
+                        "Siap taklukkan rute dan ritme hari ini?",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = glass.textSecondary
+                    color = glass.textSecondary,
+                    maxLines = 1
                 )
             }
 
@@ -111,32 +210,58 @@ fun HomeScreen(
                     }
                 }
 
+                // User Avatar (Google Photo / Initial / Icon)
                 GlassCard(
                     modifier = Modifier.size(44.dp),
                     cornerRadius = 22.dp,
                     elevated = true,
-                    accentBorderColor = glass.primary
+                    accentBorderColor = glass.primary,
+                    onClick = onNavigateToSettings
                 ) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.DirectionsRun,
-                            contentDescription = "Profil",
-                            tint = glass.primary,
-                            modifier = Modifier.size(22.dp)
-                        )
+                        if (!userProfile.photoUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = userProfile.photoUrl,
+                                contentDescription = userProfile.displayName,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else if (userProfile.displayName.isNotBlank()) {
+                            Text(
+                                text = userProfile.firstName.first().uppercase(),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = glass.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.DirectionsRun,
+                                contentDescription = "Profil",
+                                tint = glass.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // Account status quick banner
+        // Cloud & Google Account quick banner
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
             cornerRadius = 18.dp,
-            onClick = onNavigateToSettings
+            onClick = {
+                if (!userProfile.isGoogleSignedIn && accountViewModel.isFirebaseConfigured) {
+                    accountViewModel.signInWithGoogle(context)
+                } else {
+                    onNavigateToSettings()
+                }
+            }
         ) {
             Row(
                 modifier = Modifier
@@ -151,20 +276,24 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Info,
+                        imageVector = if (userProfile.isGoogleSignedIn) Icons.Default.CloudDone else Icons.Default.CloudUpload,
                         contentDescription = null,
-                        tint = StatusWarning,
+                        tint = if (userProfile.isGoogleSignedIn) glass.primary else StatusWarning,
                         modifier = Modifier.size(18.dp)
                     )
                     Text(
-                        text = "Kelola Akun Musik, Tema & Update",
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = if (userProfile.isGoogleSignedIn)
+                            "Profil & Riwayat Lari Tersimpan di Cloud"
+                        else
+                            "Masuk Akun Google agar nama & data aman di Cloud",
+                        style = MaterialTheme.typography.bodySmall,
                         color = glass.textPrimary
                     )
                 }
+                Spacer(modifier = Modifier.width(8.dp))
                 GlassPill(tint = glass.primary) {
                     Text(
-                        text = "Atur",
+                        text = if (isSigningIn) "..." else if (userProfile.isGoogleSignedIn) "Pengaturan" else "Masuk",
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelMedium,
                         color = glass.primary,

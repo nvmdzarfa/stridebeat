@@ -106,7 +106,7 @@ fun RecapScreen(
             },
             text = {
                 Text(
-                    text = "Kamu bisa mengekspor rute ini dalam format GPX dan mengunggahnya secara gratis ke https://www.strava.com/upload tanpa membutuhkan langganan API berbayar.\n\nAtau hubungkan akun di Pengaturan jika kamu memiliki Strava API Key pribadi.",
+                    text = "Kamu bisa mengekspor rute ini dalam format file GPX universal dan mengunggahnya secara manual ke Strava (https://www.strava.com/upload) atau aplikasi olahraga lainnya.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = glass.textSecondary
                 )

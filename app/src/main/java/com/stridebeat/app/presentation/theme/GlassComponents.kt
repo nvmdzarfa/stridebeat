@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -37,43 +38,40 @@ fun GlassMeshBackground(
             .fillMaxSize()
             .background(glass.backgroundBase)
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
-
-            // Top-right emerald aurora orb
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(glass.auroraTopRight, Color.Transparent),
-                    center = Offset(w * 0.88f, h * 0.10f),
-                    radius = w * 0.85f
-                ),
-                center = Offset(w * 0.88f, h * 0.10f),
-                radius = w * 0.85f
-            )
-
-            // Middle-left indigo/violet subtle ambient orb
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(glass.auroraCenter, Color.Transparent),
-                    center = Offset(w * 0.12f, h * 0.45f),
-                    radius = w * 0.75f
-                ),
-                center = Offset(w * 0.12f, h * 0.45f),
-                radius = w * 0.75f
-            )
-
-            // Bottom-right / bottom-left cyan aurora orb
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(glass.auroraBottomLeft, Color.Transparent),
-                    center = Offset(w * 0.20f, h * 0.88f),
-                    radius = w * 0.90f
-                ),
-                center = Offset(w * 0.20f, h * 0.88f),
-                radius = w * 0.90f
-            )
-        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .drawWithCache {
+                    val w = size.width
+                    val h = size.height
+                    val topRightCenter = Offset(w * 0.88f, h * 0.10f)
+                    val topRightRadius = w * 0.85f
+                    val topRightBrush = Brush.radialGradient(
+                        colors = listOf(glass.auroraTopRight, Color.Transparent),
+                        center = topRightCenter,
+                        radius = topRightRadius
+                    )
+                    val middleCenter = Offset(w * 0.12f, h * 0.45f)
+                    val middleRadius = w * 0.75f
+                    val middleBrush = Brush.radialGradient(
+                        colors = listOf(glass.auroraCenter, Color.Transparent),
+                        center = middleCenter,
+                        radius = middleRadius
+                    )
+                    val bottomCenter = Offset(w * 0.20f, h * 0.88f)
+                    val bottomRadius = w * 0.90f
+                    val bottomBrush = Brush.radialGradient(
+                        colors = listOf(glass.auroraBottomLeft, Color.Transparent),
+                        center = bottomCenter,
+                        radius = bottomRadius
+                    )
+                    onDrawBehind {
+                        drawCircle(brush = topRightBrush, center = topRightCenter, radius = topRightRadius)
+                        drawCircle(brush = middleBrush, center = middleCenter, radius = middleRadius)
+                        drawCircle(brush = bottomBrush, center = bottomCenter, radius = bottomRadius)
+                    }
+                }
+        )
 
         content()
     }

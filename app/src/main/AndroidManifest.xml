@@ -38,14 +38,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- OAuth Redirect URI Filter (untuk Strava & Spotify di M1) -->
+            <!-- OAuth Redirect URI Filter (Spotify) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:host="strava-callback"
-                    android:scheme="stridebeat" />
                 <data
                     android:host="spotify-callback"
                     android:scheme="stridebeat" />

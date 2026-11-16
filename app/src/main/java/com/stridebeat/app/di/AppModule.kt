@@ -2,8 +2,8 @@ package com.stridebeat.app.di
 
 import android.content.Context
 import com.stridebeat.app.data.local.SecureTokenStorage
+import com.stridebeat.app.data.remote.firebase.FirebaseSyncManager
 import com.stridebeat.app.data.remote.spotify.SpotifyAuthManager
-import com.stridebeat.app.data.remote.strava.StravaAuthManager
 import com.stridebeat.app.data.repository.AuthRepositoryImpl
 import com.stridebeat.app.domain.repository.AuthRepository
 import dagger.Module
@@ -29,10 +29,9 @@ object AppModule {
     @Singleton
     fun provideAuthRepository(
         tokenStorage: SecureTokenStorage,
-        stravaAuthManager: StravaAuthManager,
         spotifyAuthManager: SpotifyAuthManager
     ): AuthRepository {
-        return AuthRepositoryImpl(tokenStorage, stravaAuthManager, spotifyAuthManager)
+        return AuthRepositoryImpl(tokenStorage, spotifyAuthManager)
     }
 
     @Provides
@@ -66,8 +65,9 @@ object AppModule {
     @Provides
     @Singleton
     fun provideWorkoutRepository(
-        workoutDao: com.stridebeat.app.data.local.room.dao.WorkoutDao
+        workoutDao: com.stridebeat.app.data.local.room.dao.WorkoutDao,
+        firebaseSyncManager: FirebaseSyncManager
     ): com.stridebeat.app.domain.repository.WorkoutRepository {
-        return com.stridebeat.app.data.repository.WorkoutRepositoryImpl(workoutDao)
+        return com.stridebeat.app.data.repository.WorkoutRepositoryImpl(workoutDao, firebaseSyncManager)
     }
 }

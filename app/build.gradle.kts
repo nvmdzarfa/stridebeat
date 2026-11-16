@@ -8,6 +8,10 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 // Load secrets from local.properties safely without hardcoding or failing if file is missing
 val localProperties = Properties().apply {
     val localPropertiesFile = rootProject.file("local.properties")
@@ -17,8 +21,18 @@ val localProperties = Properties().apply {
 }
 
 fun getSecret(key: String, defaultValue: String = ""): String {
-    return (localProperties.getProperty(key) ?: defaultValue).replace("\"", "\\\"")
+    return (System.getenv(key) ?: localProperties.getProperty(key) ?: defaultValue).replace("\"", "\\\"")
 }
+
+val releaseKeystorePath = System.getenv("SIGNING_KEYSTORE_PATH") ?: localProperties.getProperty("SIGNING_KEYSTORE_PATH")
+val releaseStorePassword = System.getenv("SIGNING_STORE_PASSWORD") ?: localProperties.getProperty("SIGNING_STORE_PASSWORD")
+val releaseKeyAlias = System.getenv("SIGNING_KEY_ALIAS") ?: localProperties.getProperty("SIGNING_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("SIGNING_KEY_PASSWORD") ?: localProperties.getProperty("SIGNING_KEY_PASSWORD")
+val hasReleaseSigning = !releaseKeystorePath.isNullOrBlank() &&
+    file(releaseKeystorePath).exists() &&
+    !releaseStorePassword.isNullOrBlank() &&
+    !releaseKeyAlias.isNullOrBlank() &&
+    !releaseKeyPassword.isNullOrBlank()
 
 android {
     namespace = "com.stridebeat.app"
@@ -28,26 +42,41 @@ android {
         applicationId = "com.stridebeat.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10
-        versionName = "0.0.10"
+        versionCode = 11
+        versionName = "0.0.11"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
 
-        // Build config fields injected from local.properties
+        // Build config fields injected from local.properties / env
         buildConfigField("String", "STRAVA_CLIENT_ID", "\"${getSecret("STRAVA_CLIENT_ID")}\"")
         buildConfigField("String", "STRAVA_CLIENT_SECRET", "\"${getSecret("STRAVA_CLIENT_SECRET")}\"")
         buildConfigField("String", "SPOTIFY_CLIENT_ID", "\"${getSecret("SPOTIFY_CLIENT_ID")}\"")
         buildConfigField("String", "SPOTIFY_REDIRECT_URI", "\"${getSecret("SPOTIFY_REDIRECT_URI", "stridebeat://spotify-callback")}\"")
         buildConfigField("String", "YOUTUBE_MUSIC_OAUTH_CLIENT_ID", "\"${getSecret("YOUTUBE_MUSIC_OAUTH_CLIENT_ID")}\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${getSecret("GOOGLE_WEB_CLIENT_ID")}\"")
         buildConfigField("String", "MAPS_API_KEY", "\"${getSecret("MAPS_API_KEY")}\"")
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseKeystorePath!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -110,7 +139,16 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.coil.compose)
 
-    // Hilt Dependency Injection
+    // Firebase Auth, Firestore & Google Sign-In
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
+    implementation(libs.kotlinx.coroutines.play.services)
+
+    // Hilt DI
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)

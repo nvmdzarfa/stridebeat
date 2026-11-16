@@ -1,6 +1,5 @@
 package com.stridebeat.app.presentation.navigation.components
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,7 +10,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,15 +33,19 @@ fun BottomNavBar(navController: NavController) {
     val glass = StrideBeatGlass.colors
 
     val dockShape = RoundedCornerShape(28.dp)
-    val dockBrush = Brush.verticalGradient(
-        colors = listOf(
-            glass.glassNavBackground,
-            if (glass.isDark) glass.glassNavBackground.copy(alpha = 0.92f) else glass.glassNavBackground.copy(alpha = 0.78f)
+    val dockBrush = remember(glass) {
+        Brush.verticalGradient(
+            colors = listOf(
+                glass.glassNavBackground,
+                if (glass.isDark) glass.glassNavBackground.copy(alpha = 0.92f) else glass.glassNavBackground.copy(alpha = 0.78f)
+            )
         )
-    )
-    val borderBrush = Brush.linearGradient(
-        colors = listOf(glass.glassBorderStart, glass.glassBorderEnd)
-    )
+    }
+    val borderBrush = remember(glass) {
+        Brush.linearGradient(
+            colors = listOf(glass.glassBorderStart, glass.glassBorderEnd)
+        )
+    }
 
     Box(
         modifier = Modifier
@@ -70,14 +72,8 @@ fun BottomNavBar(navController: NavController) {
         ) {
             Screen.bottomNavScreens.forEach { screen ->
                 val isSelected = currentRoute == screen.route
-                val contentColor by animateColorAsState(
-                    targetValue = if (isSelected) glass.primary else glass.textSecondary,
-                    label = "navColor"
-                )
-                val pillColor by animateColorAsState(
-                    targetValue = if (isSelected) glass.primary.copy(alpha = if (glass.isDark) 0.16f else 0.14f) else Color.Transparent,
-                    label = "navPill"
-                )
+                val contentColor = if (isSelected) glass.primary else glass.textSecondary
+                val pillColor = if (isSelected) glass.primary.copy(alpha = if (glass.isDark) 0.16f else 0.14f) else Color.Transparent
 
                 Box(
                     modifier = Modifier
