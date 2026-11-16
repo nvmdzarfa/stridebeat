@@ -5,68 +5,110 @@
 </p>
 
 > **Strava + Musik dalam Satu Aplikasi Android Native (Kotlin from Scratch)**  
-> Menggabungkan tracking olahraga outdoor akurat ala Strava dan pemutar musik multi-platform (Spotify & YouTube Music) dengan sinkronisasi recap rute, metrik performa, dan daftar lagu yang didengarkan.
+> Menggabungkan tracking olahraga outdoor akurat ala Strava dan pemutar musik terintegrasi dengan sinkronisasi recap rute, metrik performa, dan daftar lagu yang didengarkan.
 
 ---
 
 ## 📌 Status Pengembangan
 
 - **Platform:** Android Native (100% Kotlin + Jetpack Compose Material 3)
+- **Package Name:** `com.stridebeat.app` (dibangun pada v0.0.13)
 - **Min SDK:** 26 (Android 8.0 Oreo) | **Target SDK:** 35 (Android 15)
-- **Arsitektur:** Clean Architecture + MVVM + Unidirectional Data Flow (StateFlow) + Hilt DI
+- **Arsitektur:** Clean Architecture + MVVM + Unidirectional Data Flow (StateFlow) + Hilt DI + WorkManager
 - **Status Milestone:**
-  - ✅ **M0 — Skeleton:** Selesai (Proyek dasar, Navigation Compose, Theme, 5 layar placeholder).
-  - ✅ **M1 — Auth (Strava, Spotify, YouTube Music):** Selesai (OAuth 2.0 PKCE, Spotify Client ID terpasang, EncryptedSharedPreferences AES-256 GCM).
-  - ✅ **M2 — GPS Tracking, Foreground Service & Peta:** Selesai (Fused Location Provider, Foreground Service dengan notifikasi persisten, canvas peta polyline live, kalkulasi Haversine distance, pace, kalori estimasi, dan auto-pause).
-  - ✅ **M3 — Musik & Switcher (Spotify / YouTube Music):** Selesai (Music Hub & Switcher, pencocokan lagu lintas platform dengan ISRC + toleransi durasi, background playback MediaSessionCompat, pencatatan otomatis lagu per sesi olahraga tanpa memutus tracking).
-  - ✅ **M4 — Recap, Riwayat & Export GPX:** Selesai (Room local SQLite database `stridebeat.db`, ekspor rute universal GPX 1.1 untuk upload langsung ke Strava tanpa subscription berbayar, rekap metrik lengkap + lagu, dialog konfirmasi hapus riwayat).
+  - ✅ **M0 — Skeleton:** Selesai (Proyek dasar, Navigation Compose, Glassmorphism Dark/Light/System Theme, instant BottomNavBar).
+  - ✅ **M1 — Auth & Cloud:** Selesai (Google Sign-In Firebase Auth + Firestore Cloud Sync, Spotify OAuth 2.0 PKCE, EncryptedSharedPreferences AES-256 GCM).
+  - ✅ **M2 — GPS Tracking, Foreground Service & Peta:** Selesai (Fused Location Provider, Foreground Service dengan notifikasi persisten, canvas peta polyline live, kalkulasi Haversine distance, pace, kalori estimasi, auto-pause, peringatan GPS terputus).
+  - ✅ **M3 — Musik & Playback:** Selesai (SoundCloud API full-track >45 detik + Media3 ExoPlayer HLS/MP3, Media Notification & Lock Screen dengan cover album, pencatatan otomatis lagu per sesi).
+  - ✅ **M4 — Recap, Riwayat & Export GPX:** Selesai (Room local SQLite database `stridebeat.db`, ekspor rute universal GPX 1.1, rekap metrik + lagu, share teks, cek update GitHub Releases).
+  - ✅ **M5 — Strava Native (Phase 2):** Selesai (Strava OAuth 2.0 + PKCE + auto-refresh token AES-256 GCM, Upload ke Strava via GPX `POST /uploads` & fallback `POST /activities` dengan preview/edit nama & deskripsi lagu max 10, WorkManager offline queue + notifikasi, auto-upload opsional default MATI, impor 30 aktivitas Strava terbaru dengan deduplikasi & polyline decoder, status badge di Riwayat & Recap).
+  - ⏳ **M6 — YouTube Music + Music Switcher Utuh:** Belum dikerjakan (milestone berikutnya).
+  - ⏳ **M7 — Musik Mengikuti Pace + Audio Cue:** Belum dikerjakan.
+  - ⏳ **M8 — Statistik Lanjutan + Share Gambar:** Belum dikerjakan.
 
 ---
 
-## 🏃 Arsitektur Recap, Riwayat & Export GPX (M4)
+## 🔧 Cara Setup (`local.properties`) & Build
 
-1. **Room Local Database (`StrideBeatDatabase`):**
-   * Menyimpan riwayat sesi lengkap offline di file database lokal SQLite `stridebeat.db` (PRD §7.6).
-   * Dilengkapi TypeConverters untuk serialisasi `List<LatLng>`, `List<PlayedTrack>`, dan enum `WorkoutType`.
-   * Mendukung full reactive Flow data stream (`getAllSessions()`) dan operasi CRUD (Simpan, Baca, Hapus).
-2. **Universal GPX 1.1 Exporter (`GpxExporter`):**
-   * Menghasilkan file XML GPX 1.1 standar dengan metadata titik rute (`trkpt`) berstempel waktu UTC.
-   * Rute dapat langsung dibagikan atau diunggah secara bebas ke **Strava (strava.com/upload)**, Garmin Connect, maupun Komoot tanpa perlu berlangganan Strava Developer API berbayar.
-3. **Penyatuan Metrik & Musik (Recap):**
-   * Menggabungkan visualisasi polyline rute lari, ringkasan waktu, jarak, pace rata-rata, kalori (estimasi), serta linimasa lagu yang diputar selama sesi.
+1. Salin `local.properties.example` menjadi `local.properties` di root proyek.
+2. Isi key developer sesuai kebutuhan:
+   ```properties
+   # Strava API (https://www.strava.com/settings/api — Callback Domain: strava-callback)
+   STRAVA_CLIENT_ID=<isi_client_id_strava>
+   STRAVA_CLIENT_SECRET=<isi_client_secret_strava>
 
----
-
-## 🎵 Arsitektur Musik & Switcher M3
-
-1. **Prinsip Arsitektur Hub:**
-   * Aplikasi berfungsi sebagai **hub / switcher**, memutar lagu lewat platform masing-masing tanpa membobol DRM atau mem-bypass akun langganan (PRD §1.1).
-   * **Pencocokan Lagu Lintas Platform (`TrackMatchingEngine`):** Menggunakan ISRC (*International Standard Recording Code*) sebagai kunci pemersatu, dengan fallback normalisasi judul + artis + durasi (±3 detik).
-2. **Background Playback (`MusicPlaybackService`):**
-   * Menggunakan `MediaSessionCompat` dan `NotificationCompat.MediaStyle` (`FOREGROUND_SERVICE_MEDIA_PLAYBACK`).
-   * Tombol kontrol pemutar musik (*Play/Pause/Skip*) aktif di layar kunci (*lockscreen*) dan notification drawer.
-3. **Pencatatan Sinkron ke Sesi:**
-   * Setiap lagu yang berputar selama workout otomatis dicatat beserta stempel waktu (`playedAt`), dan langsung dilampirkan ke data ringkasan sesi di layar Recap.
-   * Mengganti platform musik di tengah latihan **TIDAK AKAN MERESET** timer, rute, atau akumulasi jarak GPS pelari.
-
----
-
-## 🧪 Cara Pengujian Manual (Milestone M4)
-
-1. **Uji Alur Sesi Lengkap (Workout -> Recap -> Riwayat) di Preview:**
-   * Buka preview interaktif di atas -> Klik tombol **MULAI OLAHRAGA**.
-   * Coba kontrol tombol *Jeda / Lanjut* dan pemutar musik.
-   * Ketuk tombol **Selesai** -> konfirmasi **Ya, Selesai**.
-   * Di layar **Recap**, perhatikan visualisasi rute peta canvas, 4 kartu metrik performa, dan linimasa lagu yang menemani lari kamu.
-   * Coba klik tombol **Export GPX**: sistem akan menyiapkan file XML GPX standar untuk Strava.
-   * Ketuk tombol **Selesai & Simpan Sesi**: sesi akan tersimpan otomatis ke database Room dan diarahkan ke Beranda.
-   * Klik tab **Riwayat** di bilah bawah: lihat sesi yang baru saja kamu selesaikan masuk ke dalam daftar tersimpan offline.
-   * Coba klik ikon tong sampah pada kartu sesi: dialog konfirmasi penghapusan sesi akan muncul sesuai standar PRD §7.7.
-2. **Uji Otomatis Maestro M4:**
-   ```bash
-   maestro test maestro/m4_recap_history_flow.yaml
+   # Spotify Developer API
+   SPOTIFY_CLIENT_ID=<isi_client_id_spotify>
+   SPOTIFY_REDIRECT_URI=stridebeat://spotify-callback
    ```
-3. **Uji Unit Test GPX & Model:**
+   > Jika `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` belum diisi, aplikasi tetap berjalan normal dan menampilkan state **"Belum terhubung (Client ID belum dikonfigurasi)"** di Pengaturan.
+3. Letakkan `google-services.json` di folder `app/` untuk mengaktifkan Firebase Auth & Cloud Firestore (jangan commit ke Git).
+4. **Build & Unit Test:**
    ```bash
    ./gradlew testDebugUnitTest
+   ./gradlew assembleDebug
+   ./gradlew assembleRelease
    ```
+   > Release build tetap memakai keystore permanen yang sudah dikonfigurasi agar APK baru dapat ditimpa langsung di atas `v0.0.12` tanpa uninstall.
+
+---
+
+## 🟠 Arsitektur Strava Native (M5)
+
+Detail teknis lengkap tersedia di [`docs/STRAVA.md`](docs/STRAVA.md):
+
+1. **OAuth 2.0 + PKCE & Token Refresh (`StravaAuthManager`):**
+   * Scope minimal: `read,activity:read_all,activity:write`.
+   * Redirect deep link `stridebeat://strava-callback` di `AndroidManifest.xml`.
+   * Token tersimpan terenkripsi AES-256 GCM di `SecureTokenStorage` dan otomatis di-refresh sebelum expired. Logout Strava hanya menghapus token Strava tanpa memutus Google/Spotify.
+2. **Upload Aktivitas & WorkManager (`StravaApiClient`, `StravaRepository`, `StravaUploadWorker`):**
+   * Jalur utama upload rute GPS: `POST /api/v3/uploads` (`data_type=gpx`) agar peta rute, jarak, pace, dan daftar lagu (`🎵 Diputar di StrideBeat:` maks 10 lagu + `…dan X lagu lainnya`) ikut terunggah; fallback ke `POST /api/v3/activities` bila titik GPS `< 2`.
+   * Preview & edit nama + deskripsi selalu muncul sebelum upload manual.
+   * Auto-upload default **MATI** di DataStore (`StravaPreferences`), dan hanya berjalan jika durasi `≥ 1 menit` dan jarak `> 0 m`.
+   * Saat offline, upload masuk antrean `WorkManager` dengan status **`Menunggu`** dan otomatis terkirim saat koneksi kembali (disertai notifikasi hasil via `StravaNotificationHelper`).
+3. **Impor Riwayat & Deduplikasi:**
+   * `GET /api/v3/athlete/activities?per_page=30` mengimpor maksimal 30 aktivitas terbaru beserta `map.summary_polyline` yang didekode ke `List<LatLng>`, diberi badge **"Dari Strava"**, dan dideduplikasi via `stravaActivityId` atau kecocokan waktu/jarak/durasi.
+   * Room Database naik dari versi `1` ke `2` dengan `MIGRATION_1_2` sehingga seluruh riwayat `v0.0.12` tetap aman saat update APK.
+
+---
+
+## 🧪 Cara Pengujian Manual & Otomatis (Milestone M5)
+
+1. **Uji Pengaturan & State Akun Strava:**
+   * Buka tab **Pengaturan** → bagian **AKUN TERHUBUNG (STRAVA)**.
+   * Pastikan jika `STRAVA_CLIENT_ID` belum diisi, tampil **"Belum terhubung (Client ID belum dikonfigurasi)"** (tidak crash).
+   * Jika sudah dikonfigurasi: tap **Hubungkan**, login Strava, pastikan kembali ke StrideBeat dengan status **"Terhubung: <Nama Atlet>"**.
+   * Coba tap **Putuskan** pada kartu Strava → pastikan akun Google & Spotify tetap terhubung.
+2. **Uji Auto-upload & Preview Upload di Recap:**
+   * Pastikan toggle **Auto-upload ke Strava** default **MATI**.
+   * Lakukan sesi workout singkat (< 1 menit) dengan Auto-upload **ON** → di Recap muncul alasan dilewati dan tidak mengunggah sesi kosong ke Strava.
+   * Pada sesi valid → tap **Upload ke Strava**, periksa dialog preview nama (`StrideBeat Run — ...`) dan deskripsi (jarak/durasi/pace + daftar lagu max 10).
+   * Matikan internet lalu tap **Kirim ke Strava** → status di Recap & Riwayat menjadi **`Menunggu`**. Nyalakan internet kembali → WorkManager otomatis mengunggah dan memunculkan notifikasi selesai + badge **`Strava ✓`** (ketuk untuk membuka link Strava).
+3. **Uji Impor Riwayat Strava:**
+   * Di **Riwayat** (atau **Pengaturan**), tap **Impor Strava**.
+   * Pastikan maksimal 30 aktivitas muncul berlabel **"Dari Strava"** dengan rute tergambar; ketuk **Impor Strava** kedua kalinya → tidak terjadi duplikasi.
+4. **Uji Otomatis (Unit Test & Maestro):**
+   ```bash
+   ./gradlew testDebugUnitTest
+   maestro test maestro/m5_strava_flow.yaml
+   ```
+
+---
+
+## ✅ Checklist Regression Test v0.0.12 (Wajib Lolos M5)
+
+- [x] **Unit Test Build & M5 Logic (`DomainModelTest`, `GpxExporterTest`, `StravaIntegrationTest`):** Lolos pada CI `testDebugUnitTest`.
+- [ ] Login Google (Firebase Auth) + sync Firestore + mode offline Room tetap jalan *(verifikasi manual di perangkat fisik pasca rilis APK)*.
+- [ ] Tracking 10 menit: GPS polyline live, jarak/durasi/pace/kalori benar, auto-pause jalan, peringatan GPS terputus muncul saat GPS hilang.
+- [ ] Musik SoundCloud: search full-track >45 detik, playback HLS/MP3 via ExoPlayer, skip/seekbar, Media Notification & Lock Screen dengan cover.
+- [ ] Spotify OAuth PKCE + token terenkripsi tetap jalan.
+- [ ] Recap & Riwayat: rute + statistik + lagu tersimpan, share teks jalan, ekspor GPX jalan.
+- [ ] Beranda 7 hari + shortcut sesi terakhir tetap benar.
+- [ ] Cek update via GitHub Releases (popup + notifikasi) tetap jalan.
+- [ ] Tema Dark / Light / Ikuti Sistem + bottom bar instan tetap jalan.
+
+---
+
+## 🔑 Yang Masih Dibutuhkan dari Pemilik (M5 Live Strava)
+
+- **`STRAVA_CLIENT_ID` & `STRAVA_CLIENT_SECRET`:** Buat / ambil dari [Strava API Settings](https://www.strava.com/settings/api) dengan Authorization Callback Domain `strava-callback`, lalu simpan ke `local.properties` dan GitHub Secrets agar fitur OAuth, Upload, dan Impor Strava dapat login secara live (tanpa key ini, UI otomatis menampilkan placeholder `Belum terhubung`).

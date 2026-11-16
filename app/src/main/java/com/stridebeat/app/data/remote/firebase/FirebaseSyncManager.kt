@@ -225,6 +225,9 @@ class FirebaseSyncManager @Inject constructor(
             for (doc in cloudSnaps.documents) {
                 val id = doc.getString("id") ?: doc.id
                 cloudIds.add(id)
+                val stravaId = doc.getString("stravaActivityId")
+                val stravaStatus = doc.getString("stravaUploadStatus")
+                    ?: if (!stravaId.isNullOrBlank()) "UPLOADED" else "NOT_UPLOADED"
                 val entity = WorkoutSessionEntity(
                     id = id,
                     type = doc.getString("type") ?: "RUN",
@@ -237,7 +240,10 @@ class FirebaseSyncManager @Inject constructor(
                     routePointsJson = doc.getString("routePointsJson") ?: "[]",
                     musicSource = doc.getString("musicSource"),
                     playedTracksJson = doc.getString("playedTracksJson") ?: "[]",
-                    stravaActivityId = doc.getString("stravaActivityId"),
+                    stravaActivityId = stravaId,
+                    stravaUploadStatus = stravaStatus,
+                    isImportedFromStrava = doc.getBoolean("isImportedFromStrava") ?: false,
+                    stravaActivityName = doc.getString("stravaActivityName"),
                     gpsInterrupted = doc.getBoolean("gpsInterrupted") ?: false
                 )
                 workoutDao.insertSession(entity)
@@ -366,6 +372,9 @@ class FirebaseSyncManager @Inject constructor(
             "musicSource" to entity.musicSource,
             "playedTracksJson" to entity.playedTracksJson,
             "stravaActivityId" to entity.stravaActivityId,
+            "stravaUploadStatus" to entity.stravaUploadStatus,
+            "isImportedFromStrava" to entity.isImportedFromStrava,
+            "stravaActivityName" to entity.stravaActivityName,
             "gpsInterrupted" to entity.gpsInterrupted
         )
     }

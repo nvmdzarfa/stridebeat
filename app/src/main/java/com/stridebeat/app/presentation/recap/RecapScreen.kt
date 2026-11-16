@@ -2,6 +2,8 @@ package com.stridebeat.app.presentation.recap
 
 import android.content.Context
 import android.content.Intent
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,14 +17,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stridebeat.app.domain.model.MusicSource
 import com.stridebeat.app.domain.model.PlayedTrack
+import com.stridebeat.app.domain.model.StravaAuthState
+import com.stridebeat.app.domain.model.StravaUploadStatus
 import com.stridebeat.app.domain.model.WorkoutSession
 import com.stridebeat.app.presentation.history.HistoryViewModel
+import com.stridebeat.app.presentation.strava.ImportedFromStravaBadge
+import com.stridebeat.app.presentation.strava.StravaStatusBadge
+import com.stridebeat.app.presentation.strava.StravaViewModel
+import com.stridebeat.app.presentation.strava.openOrCopyStravaActivityLink
 import com.stridebeat.app.presentation.theme.*
 import com.stridebeat.app.presentation.workout.components.RouteMapCanvas
 import com.stridebeat.app.util.GpxExporter
@@ -32,22 +42,40 @@ import java.util.Locale
 @Composable
 fun RecapScreen(
     session: WorkoutSession? = null,
+    isJustFinished: Boolean = false,
     onDoneClick: () -> Unit,
-    historyViewModel: HistoryViewModel = hiltViewModel()
+    onNavigateToSettings: () -> Unit = {},
+    historyViewModel: HistoryViewModel = hiltViewModel(),
+    stravaViewModel: StravaViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val glass = StrideBeatGlass.colors
     val allSessions by historyViewModel.sessions.collectAsStateWithLifecycle()
-    val currentSession = session ?: allSessions.firstOrNull()
+    val liveFromDb = session?.let { s -> allSessions.find { it.id == s.id } }
+    val currentSession = liveFromDb ?: session ?: allSessions.firstOrNull()
 
-    var showStravaDialog by remember { mutableStateOf(false) }
+    val stravaAuthState by stravaViewModel.stravaAuthState.collectAsStateWithLifecycle()
+    val stravaStatusMessage by stravaViewModel.statusMessage.collectAsStateWithLifecycle()
+    val autoUploadNotice by stravaViewModel.autoUploadNotice.collectAsStateWithLifecycle()
+
+    var showStravaPreviewDialog by remember { mutableStateOf(false) }
+    var showStravaConnectPromptDialog by remember { mutableStateOf(false) }
+    var editActivityName by remember { mutableStateOf("") }
+    var editActivityDescription by remember { mutableStateOf("") }
 
     // Simpan otomatis ke Room jika sesi baru selesai dan bukan dummy
-    LaunchedEffect(currentSession?.id) {
-        currentSession?.let {
+    LaunchedEffect(session?.id) {
+        session?.let {
             if (!it.id.startsWith("sample")) {
                 historyViewModel.saveWorkoutSession(it)
             }
+        }
+    }
+
+    // Evaluasi auto-upload Strava setelah sesi baru dipastikan tersimpan di Room (US-12)
+    LaunchedEffect(isJustFinished, liveFromDb?.id) {
+        if (isJustFinished && liveFromDb != null && !liveFromDb.id.startsWith("sample")) {
+            stravaViewModel.tryAutoUploadIfEligible(liveFromDb)
         }
     }
 
@@ -93,12 +121,104 @@ fun RecapScreen(
         return
     }
 
-    if (showStravaDialog) {
+    // Dialog Preview & Edit sebelum Upload Strava (PRD §7.1 US-11)
+    if (showStravaPreviewDialog) {
         AlertDialog(
-            onDismissRequest = { showStravaDialog = false },
+            onDismissRequest = { showStravaPreviewDialog = false },
             title = {
                 Text(
-                    text = "Upload ke Strava",
+                    text = "Preview Upload ke Strava",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = glass.textPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = if (currentSession.routePoints.size >= 2)
+                            "Rute GPX (${currentSession.routePoints.size} titik) beserta ringkasan & daftar lagu akan diunggah."
+                        else
+                            "Ringkasan aktivitas (tanpa rute GPX) beserta daftar lagu akan diunggah.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = glass.textSecondary
+                    )
+
+                    OutlinedTextField(
+                        value = editActivityName,
+                        onValueChange = { editActivityName = it },
+                        label = { Text("Nama Aktivitas") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = StravaBrand,
+                            focusedLabelColor = StravaBrand,
+                            focusedTextColor = glass.textPrimary,
+                            unfocusedTextColor = glass.textPrimary,
+                            cursorColor = StravaBrand
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = editActivityDescription,
+                        onValueChange = { editActivityDescription = it },
+                        label = { Text("Deskripsi & Lagu") },
+                        minLines = 4,
+                        maxLines = 8,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = StravaBrand,
+                            focusedLabelColor = StravaBrand,
+                            focusedTextColor = glass.textPrimary,
+                            unfocusedTextColor = glass.textPrimary,
+                            cursorColor = StravaBrand
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showStravaPreviewDialog = false
+                        stravaViewModel.uploadSession(
+                            sessionId = currentSession.id,
+                            customName = editActivityName,
+                            customDescription = editActivityDescription
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = StravaBrand,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text("Kirim ke Strava", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStravaPreviewDialog = false }) {
+                    Text("Batal", color = glass.textSecondary)
+                }
+            },
+            containerColor = glass.modalSurface,
+            shape = RoundedCornerShape(22.dp)
+        )
+    }
+
+    // Dialog saat Strava belum terhubung / butuh konfigurasi / token expired
+    if (showStravaConnectPromptDialog) {
+        val message = when (stravaAuthState) {
+            is StravaAuthState.MissingConfig ->
+                "STRAVA_CLIENT_ID / STRAVA_CLIENT_SECRET belum dikonfigurasi pada build ini. Kamu tetap bisa mengekspor file GPX manual."
+            is StravaAuthState.TokenExpired ->
+                "Sesi Strava kamu kedaluwarsa. Silakan login ulang di Pengaturan, atau ekspor file GPX manual."
+            else ->
+                "Akun Strava belum terhubung. Hubungkan di Pengaturan → Akun Terhubung untuk upload langsung, atau gunakan ekspor GPX manual."
+        }
+        AlertDialog(
+            onDismissRequest = { showStravaConnectPromptDialog = false },
+            title = {
+                Text(
+                    text = "Strava Belum Terhubung",
                     style = MaterialTheme.typography.titleLarge,
                     color = glass.textPrimary,
                     fontWeight = FontWeight.Bold
@@ -106,7 +226,7 @@ fun RecapScreen(
             },
             text = {
                 Text(
-                    text = "Kamu bisa mengekspor rute ini dalam format file GPX universal dan mengunggahnya secara manual ke Strava (https://www.strava.com/upload) atau aplikasi olahraga lainnya.",
+                    text = message,
                     style = MaterialTheme.typography.bodyMedium,
                     color = glass.textSecondary
                 )
@@ -114,23 +234,26 @@ fun RecapScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        showStravaDialog = false
-                        try {
-                            val shareIntent = GpxExporter.createShareGpxIntent(context, currentSession)
-                            context.startActivity(Intent.createChooser(shareIntent, "Ekspor File GPX untuk Strava"))
-                        } catch (_: Exception) {}
+                        showStravaConnectPromptDialog = false
+                        onNavigateToSettings()
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = StravaBrand,
                         contentColor = Color.White
                     )
                 ) {
-                    Text("Ekspor File GPX", fontWeight = FontWeight.Bold)
+                    Text("Buka Pengaturan", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showStravaDialog = false }) {
-                    Text("Tutup", color = glass.textSecondary)
+                TextButton(onClick = {
+                    showStravaConnectPromptDialog = false
+                    try {
+                        val shareIntent = GpxExporter.createShareGpxIntent(context, currentSession)
+                        context.startActivity(Intent.createChooser(shareIntent, "Ekspor File GPX"))
+                    } catch (_: Exception) {}
+                }) {
+                    Text("Ekspor GPX", color = glass.textSecondary)
                 }
             },
             containerColor = glass.modalSurface,
@@ -151,9 +274,9 @@ fun RecapScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Recap Olahraga",
+                        text = currentSession.stravaActivityName?.takeIf { it.isNotBlank() } ?: "Recap Olahraga",
                         style = MaterialTheme.typography.headlineMedium,
                         color = glass.textPrimary,
                         fontWeight = FontWeight.Bold
@@ -173,6 +296,94 @@ fun RecapScreen(
                         color = glass.primary,
                         fontWeight = FontWeight.Bold
                     )
+                }
+            }
+        }
+
+        // Strava Upload Status Card (US-11, US-12, US-13, US-14)
+        item {
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                cornerRadius = 18.dp,
+                accentBorderColor = when (currentSession.stravaUploadStatus) {
+                    StravaUploadStatus.UPLOADED -> StravaBrand
+                    StravaUploadStatus.FAILED -> StatusError
+                    StravaUploadStatus.PENDING -> StatusWarning
+                    StravaUploadStatus.NOT_UPLOADED -> null
+                }
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (currentSession.isImportedFromStrava) {
+                                ImportedFromStravaBadge()
+                            }
+                            StravaStatusBadge(
+                                status = currentSession.stravaUploadStatus,
+                                stravaActivityId = currentSession.stravaActivityId,
+                                onClick = if (currentSession.stravaUploadStatus == StravaUploadStatus.UPLOADED) {
+                                    { openOrCopyStravaActivityLink(context, currentSession.stravaActivityId) }
+                                } else null
+                            )
+                        }
+
+                        if (currentSession.stravaUploadStatus == StravaUploadStatus.UPLOADED &&
+                            !currentSession.stravaActivityId.isNullOrBlank()
+                        ) {
+                            Text(
+                                text = "Buka di Strava →",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = StravaBrand,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable {
+                                    openOrCopyStravaActivityLink(context, currentSession.stravaActivityId)
+                                }
+                            )
+                        }
+                    }
+
+                    val detailText = when (currentSession.stravaUploadStatus) {
+                        StravaUploadStatus.UPLOADED ->
+                            "Sudah diunggah ke Strava (ID: ${currentSession.stravaActivityId ?: "-"})."
+                        StravaUploadStatus.PENDING ->
+                            "Menunggu upload ke Strava. Jika offline, otomatis dikirim saat koneksi tersedia."
+                        StravaUploadStatus.FAILED ->
+                            "Belum diunggah — coba lagi. Data sesi tetap aman tersimpan lokal."
+                        StravaUploadStatus.NOT_UPLOADED ->
+                            "Belum diunggah ke Strava."
+                    }
+
+                    Text(
+                        text = detailText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = glass.textSecondary
+                    )
+
+                    if (!autoUploadNotice.isNullOrBlank()) {
+                        Text(
+                            text = autoUploadNotice!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = StatusWarning
+                        )
+                    }
+
+                    if (!stravaStatusMessage.isNullOrBlank()) {
+                        Text(
+                            text = stravaStatusMessage!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = StravaBrand
+                        )
+                    }
                 }
             }
         }
@@ -288,7 +499,7 @@ fun RecapScreen(
             PlayedTrackItem(track = track)
         }
 
-        // Action Buttons: Share, GPX, Strava, Done
+        // Action Buttons: Upload ke Strava, Bagikan Ringkasan, Ekspor GPX (cadangan), Selesai
         item {
             Column(
                 modifier = Modifier
@@ -296,13 +507,48 @@ fun RecapScreen(
                     .padding(vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                if (!currentSession.isImportedFromStrava &&
+                    currentSession.stravaUploadStatus != StravaUploadStatus.UPLOADED
+                ) {
+                    val uploadLabel = when (currentSession.stravaUploadStatus) {
+                        StravaUploadStatus.PENDING -> "Unggah Ulang ke Strava"
+                        StravaUploadStatus.FAILED -> "Coba Lagi Upload ke Strava"
+                        else -> "Upload ke Strava"
+                    }
+                    Button(
+                        onClick = {
+                            if (stravaAuthState is StravaAuthState.Connected) {
+                                editActivityName = currentSession.stravaActivityName
+                                    ?: stravaViewModel.buildDefaultActivityName(currentSession)
+                                editActivityDescription = stravaViewModel.buildDefaultDescription(currentSession)
+                                showStravaPreviewDialog = true
+                            } else {
+                                showStravaConnectPromptDialog = true
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .semantics { contentDescription = uploadLabel },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = StravaBrand,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Icon(imageVector = Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = uploadLabel, fontWeight = FontWeight.Bold)
+                    }
+                }
+
                 OutlinedButton(
                     onClick = { shareWorkoutSummary(context, currentSession) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp),
                     shape = RoundedCornerShape(16.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, glass.primary),
+                    border = BorderStroke(1.5.dp, glass.primary),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = glass.primary)
                 ) {
                     Icon(imageVector = Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -311,17 +557,22 @@ fun RecapScreen(
                 }
 
                 OutlinedButton(
-                    onClick = { showStravaDialog = true },
+                    onClick = {
+                        try {
+                            val shareIntent = GpxExporter.createShareGpxIntent(context, currentSession)
+                            context.startActivity(Intent.createChooser(shareIntent, "Ekspor File GPX untuk Strava"))
+                        } catch (_: Exception) {}
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp),
+                        .height(48.dp),
                     shape = RoundedCornerShape(16.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, StravaBrand),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = StravaBrand)
+                    border = BorderStroke(1.dp, glass.divider),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = glass.textSecondary)
                 ) {
-                    Icon(imageVector = Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Icon(imageVector = Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Ekspor GPX / Upload Strava", fontWeight = FontWeight.Bold)
+                    Text(text = "Ekspor File GPX", fontWeight = FontWeight.SemiBold)
                 }
 
                 GlassPrimaryButton(

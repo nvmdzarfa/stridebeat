@@ -58,6 +58,7 @@ fun StrideBeatNavGraph(
     val shouldShowBottomBar = currentRoute in bottomNavRoutes
 
     var activeFinishedSession by remember { mutableStateOf<com.stridebeat.app.domain.model.WorkoutSession?>(null) }
+    var isJustFinishedSession by remember { mutableStateOf(false) }
 
     GlassMeshBackground {
         Scaffold(
@@ -86,6 +87,7 @@ fun StrideBeatNavGraph(
                         onViewLastSessionClick = { session ->
                             if (session != null) {
                                 activeFinishedSession = session
+                                isJustFinishedSession = false
                                 navController.navigate(Screen.Recap.route)
                             } else {
                                 navController.navigate(Screen.History.route)
@@ -103,6 +105,7 @@ fun StrideBeatNavGraph(
                     WorkoutScreen(
                         onFinishWorkout = { finishedSession ->
                             activeFinishedSession = finishedSession
+                            isJustFinishedSession = true
                             navController.navigate(Screen.Recap.route) {
                                 popUpTo(Screen.Workout.route) { inclusive = true }
                             }
@@ -113,11 +116,16 @@ fun StrideBeatNavGraph(
                 composable(Screen.Recap.route) {
                     RecapScreen(
                         session = activeFinishedSession,
+                        isJustFinished = isJustFinishedSession,
                         onDoneClick = {
                             activeFinishedSession = null
+                            isJustFinishedSession = false
                             navController.navigate(Screen.Home.route) {
                                 popUpTo(Screen.Home.route) { inclusive = true }
                             }
+                        },
+                        onNavigateToSettings = {
+                            navController.navigate(Screen.Settings.route)
                         }
                     )
                 }
@@ -126,7 +134,11 @@ fun StrideBeatNavGraph(
                     HistoryScreen(
                         onSessionClick = { clickedSession ->
                             activeFinishedSession = clickedSession
+                            isJustFinishedSession = false
                             navController.navigate(Screen.Recap.route)
+                        },
+                        onNavigateToSettings = {
+                            navController.navigate(Screen.Settings.route)
                         }
                     )
                 }

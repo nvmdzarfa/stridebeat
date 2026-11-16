@@ -29,9 +29,18 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Create local.properties
+        env:
+          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
         run: |
           echo "SPOTIFY_CLIENT_ID=11f00fd3daf04d1a9c6b38594a26005a" >> local.properties
           echo "SPOTIFY_REDIRECT_URI=stridebeat://spotify-callback" >> local.properties
+          if [ -n "$STRAVA_CLIENT_ID" ]; then
+            echo "STRAVA_CLIENT_ID=$STRAVA_CLIENT_ID" >> local.properties
+          fi
+          if [ -n "$STRAVA_CLIENT_SECRET" ]; then
+            echo "STRAVA_CLIENT_SECRET=$STRAVA_CLIENT_SECRET" >> local.properties
+          fi
 
       - name: Decode Firebase google-services.json
         env:
@@ -73,21 +82,24 @@ jobs:
       - name: Grant Execute Permission for Gradlew
         run: chmod +x gradlew
 
+      - name: Run Unit Tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
       - name: Build APK with Gradle
         run: |
           mkdir -p release-output
           if [ "$IS_SIGNED_RELEASE" = "true" ]; then
             ./gradlew assembleRelease --stacktrace
-            cp app/build/outputs/apk/release/app-release.apk release-output/StrideBeat-v0.0.12.apk
+            cp app/build/outputs/apk/release/app-release.apk release-output/StrideBeat-v0.0.13.apk
           else
             ./gradlew assembleDebug --stacktrace
-            cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.0.12-debug.apk
+            cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.0.13-debug.apk
           fi
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StrideBeat-v0.0.12
+          name: StrideBeat-v0.0.13
           path: release-output/*.apk
           retention-days: 30
 
@@ -95,14 +107,15 @@ jobs:
         if: github.ref == 'refs/heads/main' && env.IS_SIGNED_RELEASE == 'true' && env.HAS_GOOGLE_SERVICES == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.0.12
-          name: StrideBeat v0.0.12
+          tag_name: v0.0.13
+          name: StrideBeat v0.0.13 (M5 Strava Native)
           body: |
-            ### 🏃 StrideBeat v0.0.12 Release
+            ### 🏃 StrideBeat v0.0.13 Release — Milestone M5 (Strava Native)
 
-            Unduh file `.apk` di bawah — **bisa langsung ditimpa di atas `v0.0.11` tanpa uninstall!**
-            - 🔐 **Perbaikan Login Akun Google**: Menggunakan Google Play Services Account Picker langsung (`GoogleSignIn`) dengan timeout guard sehingga tidak lagi stuck loading di HP ColorOS/RealmeUI/HyperOS.
-            - ☁️ **Cloud Sync Firestore + Navigasi Instan**: Semua fitur `v0.0.11` tetap ada dan kini langsung bisa ditimpa untuk update ke depannya.
-          files: release-output/StrideBeat-v0.0.12.apk
+            Unduh file `.apk` di bawah — **bisa langsung ditimpa di atas `v0.0.12` tanpa uninstall!**
+            - 🟠 **Strava Native (OAuth 2.0 + PKCE + Auto-Refresh Token)**: Hubungkan & putuskan akun Strava terenkripsi AES-256 GCM tanpa mengganggu Google/Spotify.
+            - ☁️ **Upload ke Strava + Daftar Lagu & Preview**: Upload sesi + rute GPX + maksimal 10 lagu di deskripsi, dukungan WorkManager saat offline, dan opsi Auto-upload (default MATI).
+            - 📥 **Impor Riwayat Strava**: Impor hingga 30 aktivitas terbaru beserta rute polyline dengan deduplikasi otomatis dan badge status `Strava ✓` / `Dari Strava`.
+          files: release-output/StrideBeat-v0.0.13.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

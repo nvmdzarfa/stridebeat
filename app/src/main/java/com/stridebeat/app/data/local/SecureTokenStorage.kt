@@ -30,19 +30,32 @@ class SecureTokenStorage @Inject constructor(
     )
 
     // --- STRAVA TOKENS ---
-    fun saveStravaTokens(accessToken: String, refreshToken: String, expiresAt: Long, athleteName: String?) {
-        prefs.edit()
+    fun saveStravaTokens(
+        accessToken: String,
+        refreshToken: String,
+        expiresAt: Long,
+        athleteName: String?,
+        athleteId: Long? = null
+    ) {
+        val editor = prefs.edit()
             .putString(KEY_STRAVA_ACCESS_TOKEN, accessToken)
             .putString(KEY_STRAVA_REFRESH_TOKEN, refreshToken)
             .putLong(KEY_STRAVA_EXPIRES_AT, expiresAt)
             .putString(KEY_STRAVA_ATHLETE_NAME, athleteName)
-            .apply()
+        if (athleteId != null && athleteId > 0L) {
+            editor.putLong(KEY_STRAVA_ATHLETE_ID, athleteId)
+        }
+        editor.apply()
     }
 
     fun getStravaAccessToken(): String? = prefs.getString(KEY_STRAVA_ACCESS_TOKEN, null)
     fun getStravaRefreshToken(): String? = prefs.getString(KEY_STRAVA_REFRESH_TOKEN, null)
     fun getStravaExpiresAt(): Long = prefs.getLong(KEY_STRAVA_EXPIRES_AT, 0L)
     fun getStravaAthleteName(): String? = prefs.getString(KEY_STRAVA_ATHLETE_NAME, null)
+    fun getStravaAthleteId(): Long? {
+        val id = prefs.getLong(KEY_STRAVA_ATHLETE_ID, -1L)
+        return if (id > 0L) id else null
+    }
 
     fun clearStravaTokens() {
         prefs.edit()
@@ -50,6 +63,7 @@ class SecureTokenStorage @Inject constructor(
             .remove(KEY_STRAVA_REFRESH_TOKEN)
             .remove(KEY_STRAVA_EXPIRES_AT)
             .remove(KEY_STRAVA_ATHLETE_NAME)
+            .remove(KEY_STRAVA_ATHLETE_ID)
             .apply()
     }
 
@@ -118,6 +132,7 @@ class SecureTokenStorage @Inject constructor(
         private const val KEY_STRAVA_REFRESH_TOKEN = "strava_refresh_token"
         private const val KEY_STRAVA_EXPIRES_AT = "strava_expires_at"
         private const val KEY_STRAVA_ATHLETE_NAME = "strava_athlete_name"
+        private const val KEY_STRAVA_ATHLETE_ID = "strava_athlete_id"
 
         private const val KEY_SPOTIFY_ACCESS_TOKEN = "spotify_access_token"
         private const val KEY_SPOTIFY_REFRESH_TOKEN = "spotify_refresh_token"

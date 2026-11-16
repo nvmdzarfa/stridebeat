@@ -5,6 +5,7 @@ import com.stridebeat.app.data.local.room.dao.WorkoutDao
 import com.stridebeat.app.data.local.room.entity.WorkoutSessionEntity
 import com.stridebeat.app.data.remote.firebase.FirebaseSyncManager
 import com.stridebeat.app.domain.model.MusicSource
+import com.stridebeat.app.domain.model.StravaUploadStatus
 import com.stridebeat.app.domain.model.WorkoutSession
 import com.stridebeat.app.domain.model.WorkoutType
 import com.stridebeat.app.domain.repository.WorkoutRepository
@@ -78,6 +79,9 @@ class WorkoutRepositoryImpl @Inject constructor(
             musicSource = session.musicSource?.name,
             playedTracksJson = converters.fromPlayedTrackList(session.playedTracks),
             stravaActivityId = session.stravaActivityId,
+            stravaUploadStatus = session.stravaUploadStatus.name,
+            isImportedFromStrava = session.isImportedFromStrava,
+            stravaActivityName = session.stravaActivityName,
             gpsInterrupted = session.gpsInterrupted
         )
     }
@@ -93,6 +97,12 @@ class WorkoutRepositoryImpl @Inject constructor(
             try { MusicSource.valueOf(it) } catch (_: Exception) { null }
         }
 
+        val uploadStatus = try {
+            StravaUploadStatus.valueOf(entity.stravaUploadStatus)
+        } catch (_: Exception) {
+            if (!entity.stravaActivityId.isNullOrBlank()) StravaUploadStatus.UPLOADED else StravaUploadStatus.NOT_UPLOADED
+        }
+
         return WorkoutSession(
             id = entity.id,
             type = workoutType,
@@ -106,6 +116,9 @@ class WorkoutRepositoryImpl @Inject constructor(
             musicSource = musicSource,
             playedTracks = converters.toPlayedTrackList(entity.playedTracksJson),
             stravaActivityId = entity.stravaActivityId,
+            stravaUploadStatus = uploadStatus,
+            isImportedFromStrava = entity.isImportedFromStrava,
+            stravaActivityName = entity.stravaActivityName,
             gpsInterrupted = entity.gpsInterrupted
         )
     }

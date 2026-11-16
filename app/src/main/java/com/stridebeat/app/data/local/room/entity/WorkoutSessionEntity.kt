@@ -18,5 +18,8 @@ data class WorkoutSessionEntity(
     val musicSource: String?,        // SPOTIFY, YOUTUBE_MUSIC
     val playedTracksJson: String,    // Serialized List<PlayedTrack>
     val stravaActivityId: String?,
+    val stravaUploadStatus: String = "NOT_UPLOADED",
+    val isImportedFromStrava: Boolean = false,
+    val stravaActivityName: String? = null,
     val gpsInterrupted: Boolean
 )

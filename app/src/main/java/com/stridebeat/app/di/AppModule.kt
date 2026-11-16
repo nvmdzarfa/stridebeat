@@ -1,9 +1,12 @@
 package com.stridebeat.app.di
 
 import android.content.Context
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.stridebeat.app.data.local.SecureTokenStorage
 import com.stridebeat.app.data.remote.firebase.FirebaseSyncManager
 import com.stridebeat.app.data.remote.spotify.SpotifyAuthManager
+import com.stridebeat.app.data.remote.strava.StravaAuthManager
 import com.stridebeat.app.data.repository.AuthRepositoryImpl
 import com.stridebeat.app.domain.repository.AuthRepository
 import dagger.Module
@@ -17,6 +20,18 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
+    private val MIGRATION_1_2 = object : Migration(1, 2) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE workout_sessions ADD COLUMN stravaUploadStatus TEXT NOT NULL DEFAULT 'NOT_UPLOADED'")
+            db.execSQL("ALTER TABLE workout_sessions ADD COLUMN isImportedFromStrava INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE workout_sessions ADD COLUMN stravaActivityName TEXT")
+            db.execSQL(
+                "UPDATE workout_sessions SET stravaUploadStatus = 'UPLOADED' " +
+                    "WHERE stravaActivityId IS NOT NULL AND stravaActivityId != ''"
+            )
+        }
+    }
+
     @Provides
     @Singleton
     fun provideApplicationContext(
@@ -29,9 +44,10 @@ object AppModule {
     @Singleton
     fun provideAuthRepository(
         tokenStorage: SecureTokenStorage,
-        spotifyAuthManager: SpotifyAuthManager
+        spotifyAuthManager: SpotifyAuthManager,
+        stravaAuthManager: StravaAuthManager
     ): AuthRepository {
-        return AuthRepositoryImpl(tokenStorage, spotifyAuthManager)
+        return AuthRepositoryImpl(tokenStorage, spotifyAuthManager, stravaAuthManager)
     }
 
     @Provides
@@ -51,7 +67,10 @@ object AppModule {
             context,
             com.stridebeat.app.data.local.room.StrideBeatDatabase::class.java,
             "stridebeat.db"
-        ).fallbackToDestructiveMigration().build()
+        )
+            .addMigrations(MIGRATION_1_2)
+            .fallbackToDestructiveMigrationOnDowngrade()
+            .build()
     }
 
     @Provides

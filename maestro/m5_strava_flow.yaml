@@ -1,0 +1,43 @@
+appId: com.stridebeat.app
+---
+# Flow Pengujian Otomatis Maestro untuk Milestone M5 — Strava Native
+# Memverifikasi:
+# 1. Pengaturan -> Akun Terhubung (Strava), Toggle Auto-upload, Nama Aktivitas Default
+# 2. Tab Riwayat -> Tombol Impor / Hubungkan Strava
+# 3. Workout -> Recap -> Dialog Upload ke Strava & Status Badge
+
+- launchApp:
+    clearState: true
+
+# 1. Verifikasi Pengaturan Strava
+- tapOn: "Pengaturan"
+- assertVisible: "AKUN TERHUBUNG (STRAVA)"
+- assertVisible: "Strava"
+- assertVisible: "Auto-upload ke Strava"
+- assertVisible: "Nama Aktivitas Default"
+- assertVisible: "Impor Riwayat Strava (30 Terbaru)"
+
+# 2. Uji tombol Hubungkan Strava (menampilkan dialog konfigurasi jika Client ID kosong atau membuka OAuth)
+- tapOn: "Hubungkan"
+- runFlow:
+    when:
+      visible: "Konfigurasi Strava API"
+    commands:
+      - tapOn: "Mengerti"
+
+# 3. Verifikasi Tab Riwayat menampilkan tombol Impor/Hubungkan Strava
+- tapOn: "Riwayat"
+- assertVisible: "Riwayat Olahraga"
+
+# 4. Selesaikan Workout singkat dan verifikasi status Strava di Recap
+- tapOn: "Olahraga"
+- assertVisible: "MULAI OLAHRAGA"
+- tapOn: "MULAI OLAHRAGA"
+- tapOn: "Selesai"
+- assertVisible: "Selesaikan Sesi?"
+- tapOn: "Ya, Selesai"
+
+- assertVisible: "Recap Olahraga"
+- assertVisible: "Belum diunggah ke Strava."
+- assertVisible: "Upload ke Strava"
+- assertVisible: "Ekspor File GPX"

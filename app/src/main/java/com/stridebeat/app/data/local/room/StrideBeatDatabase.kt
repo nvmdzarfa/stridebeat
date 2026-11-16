@@ -9,7 +9,7 @@ import com.stridebeat.app.data.local.room.entity.WorkoutSessionEntity
 
 @Database(
     entities = [WorkoutSessionEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

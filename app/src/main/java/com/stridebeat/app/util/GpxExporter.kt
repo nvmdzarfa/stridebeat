@@ -39,9 +39,13 @@ object GpxExporter {
         builder.append("    <type>${session.type.name.lowercase()}</type>\n")
         builder.append("    <trkseg>\n")
 
+        val totalPts = session.routePoints.size
         session.routePoints.forEachIndexed { index, pt ->
-            // Estimasi waktu per titik jika titik GPS berurutan
-            val pointTime = session.startedAt + (index * 2000L)
+            val pointTime = if (session.durationMs > 0L && totalPts > 1) {
+                session.startedAt + ((session.durationMs * index) / (totalPts - 1))
+            } else {
+                session.startedAt + (index * 2000L)
+            }
             val pointTimeStr = isoFormat.format(Date(pointTime))
             builder.append("      <trkpt lat=\"${pt.latitude}\" lon=\"${pt.longitude}\">\n")
             builder.append("        <time>$pointTimeStr</time>\n")

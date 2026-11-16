@@ -1,5 +1,6 @@
 package com.stridebeat.app.presentation.history
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,12 +12,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.stridebeat.app.domain.model.StravaAuthState
+import com.stridebeat.app.domain.model.StravaUploadStatus
 import com.stridebeat.app.domain.model.WorkoutSession
 import com.stridebeat.app.domain.model.WorkoutType
+import com.stridebeat.app.presentation.strava.ImportedFromStravaBadge
+import com.stridebeat.app.presentation.strava.StravaStatusBadge
+import com.stridebeat.app.presentation.strava.StravaViewModel
+import com.stridebeat.app.presentation.strava.openOrCopyStravaActivityLink
 import com.stridebeat.app.presentation.theme.*
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -25,9 +34,16 @@ import java.util.Locale
 @Composable
 fun HistoryScreen(
     onSessionClick: (WorkoutSession) -> Unit,
-    historyViewModel: HistoryViewModel = hiltViewModel()
+    onNavigateToSettings: () -> Unit = {},
+    historyViewModel: HistoryViewModel = hiltViewModel(),
+    stravaViewModel: StravaViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val sessionList by historyViewModel.sessions.collectAsStateWithLifecycle()
+    val stravaState by stravaViewModel.stravaAuthState.collectAsStateWithLifecycle()
+    val isImporting by stravaViewModel.isImporting.collectAsStateWithLifecycle()
+    val stravaMessage by stravaViewModel.statusMessage.collectAsStateWithLifecycle()
+
     val glass = StrideBeatGlass.colors
     var sessionToDelete by remember { mutableStateOf<WorkoutSession?>(null) }
 
@@ -87,7 +103,7 @@ fun HistoryScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Riwayat Olahraga",
                         style = MaterialTheme.typography.headlineMedium,
@@ -95,20 +111,83 @@ fun HistoryScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Tersimpan offline di perangkat (${sessionList.size} sesi)",
+                        text = "Tersimpan offline (${sessionList.size} sesi)",
                         style = MaterialTheme.typography.bodyMedium,
                         color = glass.textSecondary
                     )
                 }
 
-                GlassPill(tint = glass.primary) {
-                    Text(
-                        text = "OFFLINE",
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = glass.primary,
-                        fontWeight = FontWeight.Bold
-                    )
+                OutlinedButton(
+                    onClick = {
+                        if (stravaState is StravaAuthState.Connected) {
+                            stravaViewModel.importRecentActivities()
+                        } else {
+                            onNavigateToSettings()
+                        }
+                    },
+                    enabled = !isImporting,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, StravaBrand.copy(alpha = 0.7f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = StravaBrand),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    if (isImporting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            color = StravaBrand,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Mengimpor...", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.CloudDownload,
+                            contentDescription = "Impor Riwayat Strava",
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = if (stravaState is StravaAuthState.Connected) "Impor Strava" else "Hubungkan Strava",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        if (!stravaMessage.isNullOrBlank()) {
+            item {
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    cornerRadius = 14.dp,
+                    accentBorderColor = StravaBrand
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stravaMessage!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = glass.textPrimary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = { stravaViewModel.clearStatusMessage() },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Tutup Pesan",
+                                tint = glass.textMuted,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -139,7 +218,7 @@ fun HistoryScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Mulai olahraga pertamamu dari Beranda untuk mencatat rute dan lagu!",
+                            text = "Mulai olahraga pertamamu dari Beranda, atau impor riwayat dari Strava.",
                             style = MaterialTheme.typography.bodySmall,
                             color = glass.textSecondary
                         )
@@ -151,7 +230,14 @@ fun HistoryScreen(
                 HistoryCardItem(
                     session = session,
                     onClick = { onSessionClick(session) },
-                    onDelete = { sessionToDelete = session }
+                    onDelete = { sessionToDelete = session },
+                    onStravaBadgeClick = {
+                        if (session.stravaUploadStatus == StravaUploadStatus.UPLOADED) {
+                            openOrCopyStravaActivityLink(context, session.stravaActivityId)
+                        } else {
+                            onSessionClick(session)
+                        }
+                    }
                 )
             }
         }
@@ -162,7 +248,8 @@ fun HistoryScreen(
 private fun HistoryCardItem(
     session: WorkoutSession,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onStravaBadgeClick: () -> Unit
 ) {
     val glass = StrideBeatGlass.colors
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID"))
@@ -184,7 +271,8 @@ private fun HistoryCardItem(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
                     GlassPill(
                         tint = glass.primary,
@@ -205,10 +293,11 @@ private fun HistoryCardItem(
 
                     Column {
                         Text(
-                            text = session.type.displayName,
+                            text = session.stravaActivityName?.takeIf { it.isNotBlank() } ?: session.type.displayName,
                             style = MaterialTheme.typography.titleMedium,
                             color = glass.textPrimary,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
                         )
                         Text(
                             text = dateString,
@@ -234,6 +323,22 @@ private fun HistoryCardItem(
                         modifier = Modifier.size(16.dp)
                     )
                 }
+            }
+
+            // Badge status Strava & label "Dari Strava" (US-13 & US-14)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (session.isImportedFromStrava) {
+                    ImportedFromStravaBadge()
+                }
+                StravaStatusBadge(
+                    status = session.stravaUploadStatus,
+                    stravaActivityId = session.stravaActivityId,
+                    onClick = onStravaBadgeClick
+                )
             }
 
             GlassDivider()

@@ -34,7 +34,9 @@ import coil.compose.AsyncImage
 import com.stridebeat.app.BuildConfig
 import com.stridebeat.app.data.local.AppThemeMode
 import com.stridebeat.app.domain.model.SpotifyAuthState
+import com.stridebeat.app.domain.model.StravaAuthState
 import com.stridebeat.app.presentation.profile.AccountViewModel
+import com.stridebeat.app.presentation.strava.StravaViewModel
 import com.stridebeat.app.presentation.theme.*
 import com.stridebeat.app.presentation.update.UpdateViewModel
 
@@ -43,13 +45,20 @@ fun SettingsScreen(
     authViewModel: AuthViewModel = hiltViewModel(),
     themeViewModel: ThemeViewModel = hiltViewModel(),
     updateViewModel: UpdateViewModel = hiltViewModel(),
-    accountViewModel: AccountViewModel = hiltViewModel()
+    accountViewModel: AccountViewModel = hiltViewModel(),
+    stravaViewModel: StravaViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     val glass = StrideBeatGlass.colors
 
     val spotifyState by authViewModel.spotifyState.collectAsStateWithLifecycle()
+    val stravaState by authViewModel.stravaState.collectAsStateWithLifecycle()
+    val autoUploadStrava by stravaViewModel.autoUploadEnabled.collectAsStateWithLifecycle()
+    val defaultActivityPrefix by stravaViewModel.defaultActivityPrefix.collectAsStateWithLifecycle()
+    val isImportingStrava by stravaViewModel.isImporting.collectAsStateWithLifecycle()
+    val stravaStatusMessage by stravaViewModel.statusMessage.collectAsStateWithLifecycle()
+
     val userProfile by accountViewModel.userProfile.collectAsStateWithLifecycle()
     val isSigningIn by accountViewModel.isSigningIn.collectAsStateWithLifecycle()
     val isSyncing by accountViewModel.isSyncing.collectAsStateWithLifecycle()
@@ -61,6 +70,9 @@ fun SettingsScreen(
     val updateStatusMessage by updateViewModel.statusMessage.collectAsStateWithLifecycle()
 
     var showSpotifyConfigDialog by remember { mutableStateOf(false) }
+    var showStravaConfigDialog by remember { mutableStateOf(false) }
+    var showEditStravaPrefixDialog by remember { mutableStateOf(false) }
+    var stravaPrefixInput by remember { mutableStateOf("") }
     var showEditNameDialog by remember { mutableStateOf(false) }
     var editNameInput by remember { mutableStateOf("") }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
@@ -77,6 +89,92 @@ fun SettingsScreen(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         accountViewModel.handleGoogleSignInResult(result.resultCode, result.data)
+    }
+
+    if (showStravaConfigDialog) {
+        AlertDialog(
+            onDismissRequest = { showStravaConfigDialog = false },
+            title = {
+                Text(
+                    text = "Konfigurasi Strava API",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = glass.textPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "STRAVA_CLIENT_ID dan STRAVA_CLIENT_SECRET belum dikonfigurasi pada build ini (local.properties / GitHub Secrets). Kamu tetap bisa melacak olahraga dan mengekspor file GPX secara manual.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = glass.textSecondary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showStravaConfigDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = StravaBrand, contentColor = Color.White)
+                ) {
+                    Text("Mengerti", fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = glass.modalSurface,
+            shape = RoundedCornerShape(22.dp)
+        )
+    }
+
+    if (showEditStravaPrefixDialog) {
+        AlertDialog(
+            onDismissRequest = { showEditStravaPrefixDialog = false },
+            title = {
+                Text(
+                    text = "Nama Aktivitas Default Strava",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = glass.textPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Prefix dipakai untuk membentuk judul aktivitas otomatis (contoh: \"StrideBeat Run — 16 Nov 2026 06:30\").",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = glass.textSecondary
+                    )
+                    OutlinedTextField(
+                        value = stravaPrefixInput,
+                        onValueChange = { stravaPrefixInput = it },
+                        label = { Text("Prefix Judul") },
+                        placeholder = { Text("StrideBeat") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = StravaBrand,
+                            focusedLabelColor = StravaBrand,
+                            focusedTextColor = glass.textPrimary,
+                            unfocusedTextColor = glass.textPrimary,
+                            cursorColor = StravaBrand
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        stravaViewModel.setDefaultActivityPrefix(stravaPrefixInput)
+                        showEditStravaPrefixDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = StravaBrand, contentColor = Color.White)
+                ) {
+                    Text("Simpan", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditStravaPrefixDialog = false }) {
+                    Text("Batal", color = glass.textSecondary)
+                }
+            },
+            containerColor = glass.modalSurface,
+            shape = RoundedCornerShape(22.dp)
+        )
     }
 
     if (showSpotifyConfigDialog) {
@@ -173,7 +271,7 @@ fun SettingsScreen(
             },
             text = {
                 Text(
-                    text = "Sesi Google & token Spotify di perangkat ini akan diputuskan. Data yang sudah disinkronkan di Cloud Firestore tetap aman.",
+                    text = "Sesi Google, Strava & token Spotify di perangkat ini akan diputuskan. Data yang sudah disinkronkan di Cloud Firestore tetap aman.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = glass.textSecondary
                 )
@@ -181,6 +279,7 @@ fun SettingsScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        authViewModel.disconnectStrava()
                         authViewModel.disconnectSpotify()
                         accountViewModel.signOut()
                         showDeleteConfirmDialog = false
@@ -656,7 +755,49 @@ fun SettingsScreen(
 
         GlassDivider()
 
-        // Section: Akun Musik (Spotify dipertahankan; Strava & YouTube Music palsu dihapus)
+        // Section: Akun Terhubung — Strava (M5)
+        Text(
+            text = "AKUN TERHUBUNG (STRAVA)",
+            style = MaterialTheme.typography.labelMedium,
+            color = glass.primary,
+            fontWeight = FontWeight.Bold
+        )
+
+        StravaAccountCard(
+            state = stravaState,
+            onConnect = {
+                if (stravaState is StravaAuthState.MissingConfig) {
+                    showStravaConfigDialog = true
+                } else {
+                    authViewModel.startStravaLogin(context)
+                }
+            },
+            onDisconnect = { authViewModel.disconnectStrava() }
+        )
+
+        StravaPreferencesCard(
+            stravaState = stravaState,
+            autoUploadEnabled = autoUploadStrava,
+            defaultPrefix = defaultActivityPrefix,
+            isImporting = isImportingStrava,
+            statusMessage = stravaStatusMessage,
+            onToggleAutoUpload = { stravaViewModel.setAutoUploadEnabled(it) },
+            onEditDefaultPrefix = {
+                stravaPrefixInput = defaultActivityPrefix
+                showEditStravaPrefixDialog = true
+            },
+            onImportHistory = {
+                if (stravaState is StravaAuthState.MissingConfig) {
+                    showStravaConfigDialog = true
+                } else {
+                    stravaViewModel.importRecentActivities()
+                }
+            }
+        )
+
+        GlassDivider()
+
+        // Section: Akun Musik
         Text(
             text = "AKUN MUSIK",
             style = MaterialTheme.typography.labelMedium,
@@ -943,3 +1084,259 @@ private fun SpotifyAccountCard(
         }
     }
 }
+
+@Composable
+private fun StravaAccountCard(
+    state: StravaAuthState,
+    onConnect: () -> Unit,
+    onDisconnect: () -> Unit
+) {
+    val glass = StrideBeatGlass.colors
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 18.dp,
+        accentBorderColor = if (state is StravaAuthState.Connected) StravaBrand else null
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Strava",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = glass.textPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        GlassPill(tint = StravaBrand, shape = RoundedCornerShape(8.dp)) {
+                            Text(
+                                text = "API v3",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = StravaBrand,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    when (state) {
+                        is StravaAuthState.Connected -> {
+                            Text(
+                                text = "Terhubung: ${state.athleteName}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = StravaBrand,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
+                        is StravaAuthState.TokenExpired -> {
+                            Text(
+                                text = "Token expired — Login ulang Strava",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = StatusWarning,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
+                        is StravaAuthState.Connecting -> {
+                            Text(
+                                text = "Sedang menghubungkan ke Strava...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = StravaBrand,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
+                        is StravaAuthState.MissingConfig -> {
+                            Text(
+                                text = "Belum terhubung (Client ID belum dikonfigurasi)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = glass.textMuted,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
+                        is StravaAuthState.Error -> {
+                            Text(
+                                text = state.message,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = StatusError,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
+                        else -> {
+                            Text(
+                                text = "Belum terhubung",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = glass.textMuted,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
+                    }
+                }
+
+                if (state is StravaAuthState.Connected) {
+                    OutlinedButton(
+                        onClick = onDisconnect,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = StatusError),
+                        border = BorderStroke(1.dp, StatusError.copy(alpha = 0.5f))
+                    ) {
+                        Text("Putuskan", style = MaterialTheme.typography.labelMedium)
+                    }
+                } else {
+                    Button(
+                        onClick = onConnect,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (state is StravaAuthState.TokenExpired) StatusWarning else StravaBrand,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text(
+                            text = if (state is StravaAuthState.TokenExpired) "Login Ulang" else "Hubungkan",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            Text(
+                text = "Scope: read, activity:read_all, activity:write — untuk profil atlet, impor riwayat, dan upload sesi olahraga.",
+                style = MaterialTheme.typography.labelSmall,
+                color = glass.textMuted
+            )
+        }
+    }
+}
+
+@Composable
+private fun StravaPreferencesCard(
+    stravaState: StravaAuthState,
+    autoUploadEnabled: Boolean,
+    defaultPrefix: String,
+    isImporting: Boolean,
+    statusMessage: String?,
+    onToggleAutoUpload: (Boolean) -> Unit,
+    onEditDefaultPrefix: () -> Unit,
+    onImportHistory: () -> Unit
+) {
+    val glass = StrideBeatGlass.colors
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 18.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Auto-upload ke Strava",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = glass.textPrimary
+                    )
+                    Text(
+                        text = "Otomatis unggah sesi ≥ 1 menit & jarak > 0 m setelah selesai",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = glass.textSecondary
+                    )
+                }
+                Switch(
+                    checked = autoUploadEnabled,
+                    onCheckedChange = onToggleAutoUpload,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = StravaBrand,
+                        checkedTrackColor = StravaBrand.copy(alpha = 0.3f),
+                        uncheckedThumbColor = glass.textMuted,
+                        uncheckedTrackColor = glass.trackBarInactive
+                    )
+                )
+            }
+
+            GlassDivider()
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onEditDefaultPrefix() },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Nama Aktivitas Default",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = glass.textPrimary
+                    )
+                    Text(
+                        text = "$defaultPrefix Run — <tanggal> <jam>",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = glass.textSecondary
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "Ubah Nama Aktivitas Default",
+                    tint = StravaBrand,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            GlassDivider()
+
+            OutlinedButton(
+                onClick = onImportHistory,
+                enabled = stravaState is StravaAuthState.Connected && !isImporting,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(
+                    1.dp,
+                    if (stravaState is StravaAuthState.Connected) StravaBrand.copy(alpha = 0.7f) else glass.divider
+                ),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = StravaBrand)
+            ) {
+                if (isImporting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = StravaBrand,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Mengimpor 30 aktivitas terbaru...", fontWeight = FontWeight.SemiBold)
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.CloudDownload,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Impor Riwayat Strava (30 Terbaru)", fontWeight = FontWeight.SemiBold)
+                }
+            }
+
+            if (!statusMessage.isNullOrBlank()) {
+                Text(
+                    text = statusMessage,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = StravaBrand
+                )
+            }
+        }
+    }
+}
+

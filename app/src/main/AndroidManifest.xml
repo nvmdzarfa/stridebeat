@@ -47,6 +47,16 @@
                     android:host="spotify-callback"
                     android:scheme="stridebeat" />
             </intent-filter>
+
+            <!-- OAuth Redirect URI Filter (Strava - M5) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:host="strava-callback"
+                    android:scheme="stridebeat" />
+            </intent-filter>
         </activity>
 
         <!-- Foreground Service untuk GPS tracking lokasi latar belakang (M2) -->
