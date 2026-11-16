@@ -60,4 +60,13 @@ class DomainModelTest {
         assertEquals(5000.0, session.distanceMeters, 0.001)
         assertEquals(1, session.playedTracks.size)
     }
+
+    @Test
+    fun testMusicSourceEnumValuesAndDisplayNames() {
+        assertEquals("SoundCloud", MusicSource.SOUNDCLOUD.displayName)
+        assertEquals("Spotify", MusicSource.SPOTIFY.displayName)
+        assertEquals("YouTube Music", MusicSource.YOUTUBE_MUSIC.displayName)
+        assertEquals(3, MusicSource.values().size)
+    }
 }
+

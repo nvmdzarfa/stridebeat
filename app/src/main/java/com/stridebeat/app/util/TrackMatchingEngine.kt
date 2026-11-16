@@ -5,12 +5,14 @@ import com.stridebeat.app.domain.model.Track
 import kotlin.math.abs
 
 /**
- * Mesin pencocokan lagu antar platform (Spotify <-> YouTube Music).
+ * Mesin pencocokan lagu antar platform (SoundCloud <-> YouTube Music / Spotify).
  * Sesuai PRD §6.4:
  * 1. Kunci Utama: ISRC (International Standard Recording Code).
- * 2. Fallback: Normalisasi judul + artis + toleransi durasi (±2 detik).
+ * 2. Fallback: Normalisasi judul + artis + toleransi durasi (±2 detik / 2000 ms).
  */
 object TrackMatchingEngine {
+
+    private const val DURATION_TOLERANCE_MS = 2000L
 
     /**
      * Memeriksa apakah dua lagu identik secara lintas platform.
@@ -23,7 +25,7 @@ object TrackMatchingEngine {
             }
         }
 
-        // 2. Fallback: Normalisasi judul + artis + toleransi durasi
+        // 2. Fallback: Normalisasi judul + artis + toleransi durasi (±2 detik)
         val titleA = normalizeString(trackA.title)
         val titleB = normalizeString(trackB.title)
         val artistA = normalizeString(trackA.artist)
@@ -33,9 +35,43 @@ object TrackMatchingEngine {
         val artistsMatch = artistA.contains(artistB) || artistB.contains(artistA)
 
         val durationDiffMs = abs(trackA.durationMs - trackB.durationMs)
-        val durationMatches = durationDiffMs <= 3000L // toleransi ±3 detik
+        val durationMatches = durationDiffMs <= DURATION_TOLERANCE_MS
 
         return titlesMatch && artistsMatch && durationMatches
+    }
+
+    /**
+     * Mencari kecocokan terbaik untuk target track dari daftar kandidat.
+     * Mengutamakan ISRC match, kemudian fallback normalisasi judul + artis + durasi.
+     */
+    fun findBestMatch(target: Track, candidates: List<Track>): Track? {
+        if (candidates.isEmpty()) return null
+
+        // 1. Prioritas utama: ISRC matching
+        if (!target.isrc.isNullOrBlank()) {
+            val isrcMatch = candidates.firstOrNull { candidate ->
+                !candidate.isrc.isNullOrBlank() && candidate.isrc.equals(target.isrc, ignoreCase = true)
+            }
+            if (isrcMatch != null) return isrcMatch
+        }
+
+        // 2. Fallback: Title + Artist + Duration (±2s)
+        return candidates.firstOrNull { candidate ->
+            isMatchingTrack(target, candidate)
+        }
+    }
+
+    /**
+     * Remapping riwayat sesi lama:
+     * Di v0.1.2 dan sebelumnya, pencarian online SoundCloud sempat disimpan dengan platformIds
+     * YOUTUBE_MUSIC dan ID berawalan "sc_". Remapping ini mengembalikan ke MusicSource.SOUNDCLOUD
+     * secara transparan tanpa mengubah skema Room DB / Firestore.
+     */
+    fun remapLegacySource(trackId: String, source: MusicSource): MusicSource {
+        if (trackId.startsWith("sc_") && source == MusicSource.YOUTUBE_MUSIC) {
+            return MusicSource.SOUNDCLOUD
+        }
+        return source
     }
 
     /**

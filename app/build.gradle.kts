@@ -55,10 +55,12 @@ android {
         buildConfigField("String", "STRAVA_CLIENT_SECRET", "\"${getSecret("STRAVA_CLIENT_SECRET")}\"")
         buildConfigField("String", "SPOTIFY_CLIENT_ID", "\"${getSecret("SPOTIFY_CLIENT_ID")}\"")
         buildConfigField("String", "SPOTIFY_REDIRECT_URI", "\"${getSecret("SPOTIFY_REDIRECT_URI", "stridebeat://spotify-callback")}\"")
+        buildConfigField("String", "SOUNDCLOUD_CLIENT_ID", "\"${getSecret("SOUNDCLOUD_CLIENT_ID")}\"")
         buildConfigField("String", "YOUTUBE_MUSIC_OAUTH_CLIENT_ID", "\"${getSecret("YOUTUBE_MUSIC_OAUTH_CLIENT_ID")}\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${getSecret("GOOGLE_WEB_CLIENT_ID")}\"")
         buildConfigField("String", "MAPS_API_KEY", "\"${getSecret("MAPS_API_KEY")}\"")
     }
+
 
     signingConfigs {
         if (hasReleaseSigning) {

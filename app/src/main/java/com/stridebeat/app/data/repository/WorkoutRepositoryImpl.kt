@@ -103,6 +103,12 @@ class WorkoutRepositoryImpl @Inject constructor(
             if (!entity.stravaActivityId.isNullOrBlank()) StravaUploadStatus.UPLOADED else StravaUploadStatus.NOT_UPLOADED
         }
 
+        val playedTracks = converters.toPlayedTrackList(entity.playedTracksJson)
+        val finalMusicSource = when {
+            musicSource == MusicSource.YOUTUBE_MUSIC && playedTracks.isNotEmpty() && playedTracks.all { it.source == MusicSource.SOUNDCLOUD } -> MusicSource.SOUNDCLOUD
+            else -> musicSource
+        }
+
         return WorkoutSession(
             id = entity.id,
             type = workoutType,
@@ -113,8 +119,8 @@ class WorkoutRepositoryImpl @Inject constructor(
             avgPaceMinPerKm = entity.avgPaceMinPerKm,
             caloriesKcal = entity.caloriesKcal,
             routePoints = converters.toLatLngList(entity.routePointsJson),
-            musicSource = musicSource,
-            playedTracks = converters.toPlayedTrackList(entity.playedTracksJson),
+            musicSource = finalMusicSource,
+            playedTracks = playedTracks,
             stravaActivityId = entity.stravaActivityId,
             stravaUploadStatus = uploadStatus,
             isImportedFromStrava = entity.isImportedFromStrava,
@@ -122,4 +128,5 @@ class WorkoutRepositoryImpl @Inject constructor(
             gpsInterrupted = entity.gpsInterrupted
         )
     }
+
 }

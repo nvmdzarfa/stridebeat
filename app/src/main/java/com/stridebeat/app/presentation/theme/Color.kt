@@ -23,7 +23,9 @@ val SportPrimaryDark = Color(0xFF00B359)
 
 val SpotifyBrand = Color(0xFF1DB954)
 val YouTubeBrand = Color(0xFFFF3B30)
+val SoundCloudBrand = Color(0xFFFF5500)
 val StravaBrand = Color(0xFFFC4C02)
+
 
 val TextPrimaryDark = Color(0xFFF8FAFC)
 val TextSecondaryDark = Color(0xFF94A3B8)

@@ -1,5 +1,6 @@
 package com.stridebeat.app.data.remote.music
 
+import com.stridebeat.app.BuildConfig
 import com.stridebeat.app.domain.model.MusicSource
 import com.stridebeat.app.domain.model.Track
 import kotlinx.coroutines.Dispatchers
@@ -17,8 +18,12 @@ import java.net.URLEncoder
  */
 object OnlineMusicSearchEngine {
 
-    private const val SOUNDCLOUD_CLIENT_ID = "qLcgHhXgeEFFaSolTB9I71LBsqncsD93"
+    private const val DEFAULT_SOUNDCLOUD_CLIENT_ID = "qLcgHhXgeEFFaSolTB9I71LBsqncsD93"
     private const val MIN_TRACK_DURATION_MS = 45000L // Minimal 45 detik (menolak snippet 30 detik)
+
+    private val soundCloudClientId: String
+        get() = runCatching { BuildConfig.SOUNDCLOUD_CLIENT_ID }.getOrNull()?.ifBlank { DEFAULT_SOUNDCLOUD_CLIENT_ID }
+            ?: DEFAULT_SOUNDCLOUD_CLIENT_ID
 
     suspend fun searchTracks(query: String): List<Track> = withContext(Dispatchers.IO) {
         val trimmed = query.trim()
@@ -30,10 +35,11 @@ object OnlineMusicSearchEngine {
     private fun searchSoundCloud(query: String): List<Track> {
         val list = mutableListOf<Track>()
         val seenSignatures = mutableSetOf<String>()
+        val clientId = soundCloudClientId
 
         try {
             val encoded = URLEncoder.encode(query, "UTF-8")
-            val searchUrl = "https://api-v2.soundcloud.com/search/tracks?q=$encoded&client_id=$SOUNDCLOUD_CLIENT_ID&limit=20"
+            val searchUrl = "https://api-v2.soundcloud.com/search/tracks?q=$encoded&client_id=$clientId&limit=20"
             val connection = (URL(searchUrl).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
                 connectTimeout = 6000
@@ -93,7 +99,7 @@ object OnlineMusicSearchEngine {
                         .replace("http://", "https://")
 
                     if (streamEndpoint.isNotBlank()) {
-                        val directUrl = resolveSoundCloudStream(streamEndpoint, SOUNDCLOUD_CLIENT_ID)
+                        val directUrl = resolveSoundCloudStream(streamEndpoint, clientId)
                         if (directUrl.isNotBlank()) {
                             list.add(
                                 Track(
@@ -106,8 +112,7 @@ object OnlineMusicSearchEngine {
                                     coverUrl = highResArtwork.ifBlank { null },
                                     audioUrl = directUrl,
                                     platformIds = mapOf(
-                                        MusicSource.YOUTUBE_MUSIC to id,
-                                        MusicSource.SPOTIFY to id
+                                        MusicSource.SOUNDCLOUD to id
                                     )
                                 )
                             )

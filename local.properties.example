@@ -13,6 +13,10 @@ STRAVA_CLIENT_SECRET=
 SPOTIFY_CLIENT_ID=
 SPOTIFY_REDIRECT_URI=stridebeat://spotify-callback
 
+# SoundCloud Client ID (Opsional, bawaan klien publik StrideBeat sudah tersedia jika dikosongkan)
+SOUNDCLOUD_CLIENT_ID=
+
+
 # YouTube Music OAuth (Google Cloud Console OAuth Client ID jika diaktifkan)
 YOUTUBE_MUSIC_OAUTH_CLIENT_ID=
 

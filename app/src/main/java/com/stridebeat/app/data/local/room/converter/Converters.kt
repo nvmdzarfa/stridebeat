@@ -55,18 +55,21 @@ class Converters {
         val array = JSONArray(json)
         for (i in 0 until array.length()) {
             val obj = array.getJSONObject(i)
+            val trackId = obj.getString("trackId")
             val sourceName = obj.optString("source", "SPOTIFY")
-            val source = try { MusicSource.valueOf(sourceName) } catch (_: Exception) { MusicSource.SPOTIFY }
+            val rawSource = try { MusicSource.valueOf(sourceName) } catch (_: Exception) { MusicSource.SPOTIFY }
+            val remappedSource = com.stridebeat.app.util.TrackMatchingEngine.remapLegacySource(trackId, rawSource)
             list.add(
                 PlayedTrack(
-                    trackId = obj.getString("trackId"),
+                    trackId = trackId,
                     title = obj.getString("title"),
                     artist = obj.getString("artist"),
-                    source = source,
+                    source = remappedSource,
                     playedAt = obj.getLong("playedAt")
                 )
             )
         }
         return list
+
     }
 }

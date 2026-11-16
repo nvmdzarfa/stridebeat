@@ -9,7 +9,8 @@ data class WorkoutPlaylist(
     val id: String,
     val name: String,
     val description: String,
-    val source: MusicSource,
+    val source: MusicSource? = null,
     val tracks: List<Track>,
     val coverUrl: String? = null
 )
+

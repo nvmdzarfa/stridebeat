@@ -3,7 +3,10 @@ package com.stridebeat.app
 import com.stridebeat.app.domain.model.MusicSource
 import com.stridebeat.app.domain.model.Track
 import com.stridebeat.app.util.TrackMatchingEngine
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -33,7 +36,7 @@ class TrackMatchingTest {
     }
 
     @Test
-    fun testFallbackTitleAndArtistMatching() {
+    fun testFallbackTitleAndArtistMatchingWithinTwoSeconds() {
         val trackA = Track(
             id = "t1",
             isrc = null,
@@ -48,11 +51,79 @@ class TrackMatchingTest {
             isrc = null,
             title = "Starboy",
             artist = "The Weeknd, Daft Punk",
-            durationMs = 231500L, // 1.5 detik beda
+            durationMs = 231500L, // 1.5 detik beda (<= 2000L)
             platformIds = mapOf(MusicSource.YOUTUBE_MUSIC to "ytm_2")
         )
 
         assertTrue(TrackMatchingEngine.isMatchingTrack(trackA, trackB))
+    }
+
+    @Test
+    fun testFallbackRejectsDurationDiffOverTwoSeconds() {
+        val a = Track(id = "1", title = "Blinding Lights", artist = "The Weeknd", durationMs = 200_000L)
+        val b = Track(id = "2", title = "Blinding Lights", artist = "The Weeknd", durationMs = 202_500L) // 2.5s beda
+        assertFalse(TrackMatchingEngine.isMatchingTrack(a, b))
+    }
+
+    @Test
+    fun testFindBestMatchPrefersIsrcOverTitleFallback() {
+        val target = Track(
+            id = "target",
+            isrc = "ISRC_EXACT",
+            title = "Run",
+            artist = "OneRepublic",
+            durationMs = 180000L
+        )
+
+        val candidate1 = Track(
+            id = "c1",
+            isrc = null,
+            title = "Run",
+            artist = "OneRepublic",
+            durationMs = 180500L
+        )
+
+        val candidate2 = Track(
+            id = "c2",
+            isrc = "ISRC_EXACT",
+            title = "Run - Official Video",
+            artist = "OneRepublic",
+            durationMs = 181000L
+        )
+
+        val matched = TrackMatchingEngine.findBestMatch(target, listOf(candidate1, candidate2))
+        assertNotNull(matched)
+        assertEquals("c2", matched?.id)
+    }
+
+    @Test
+    fun testFindBestMatchReturnsNullWhenNoMatchFound() {
+        val target = Track(
+            id = "target",
+            isrc = "ISRC_TARGET",
+            title = "Levels",
+            artist = "Avicii",
+            durationMs = 200000L
+        )
+
+        val candidate = Track(
+            id = "c1",
+            isrc = "ISRC_OTHER",
+            title = "Wake Me Up",
+            artist = "Avicii",
+            durationMs = 240000L
+        )
+
+        val matched = TrackMatchingEngine.findBestMatch(target, listOf(candidate))
+        assertNull(matched)
+    }
+
+    @Test
+    fun testLegacySoundCloudRemapping() {
+        assertEquals(MusicSource.SOUNDCLOUD, TrackMatchingEngine.remapLegacySource("sc_12345", MusicSource.YOUTUBE_MUSIC))
+        assertEquals(MusicSource.YOUTUBE_MUSIC, TrackMatchingEngine.remapLegacySource("ytm_abc", MusicSource.YOUTUBE_MUSIC))
+        assertEquals(MusicSource.SOUNDCLOUD, TrackMatchingEngine.remapLegacySource("sc_999", MusicSource.SOUNDCLOUD))
+        assertEquals(MusicSource.SPOTIFY, TrackMatchingEngine.remapLegacySource("sp_001", MusicSource.SPOTIFY))
     }
 
     @Test
@@ -83,10 +154,10 @@ class TrackMatchingTest {
             title = "Test Track",
             artist = "Artist",
             durationMs = 200000L,
-            platformIds = mapOf(MusicSource.SPOTIFY to "spotify:uri")
+            platformIds = mapOf(MusicSource.SOUNDCLOUD to "sc_uri")
         )
 
-        assertTrue(TrackMatchingEngine.hasPlatformSupport(track, MusicSource.SPOTIFY))
+        assertTrue(TrackMatchingEngine.hasPlatformSupport(track, MusicSource.SOUNDCLOUD))
         assertFalse(TrackMatchingEngine.hasPlatformSupport(track, MusicSource.YOUTUBE_MUSIC))
     }
 }
