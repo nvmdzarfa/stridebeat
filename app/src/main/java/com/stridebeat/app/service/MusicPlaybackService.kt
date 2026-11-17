@@ -240,8 +240,10 @@ class MusicPlaybackService : Service() {
         if (isPlaying) {
             if (!audioUrl.isNullOrBlank()) {
                 playAudio(audioUrl)
-            } else {
+            } else if (isSameTrack) {
                 resumeAudio()
+            } else {
+                pauseAudio()
             }
         } else {
             pauseAudio()
@@ -489,6 +491,13 @@ class MusicPlaybackService : Service() {
                 }
                 context.startService(intent)
             }
+        }
+
+        fun pause(context: Context) {
+            val intent = Intent(context, MusicPlaybackService::class.java).apply {
+                action = ACTION_PAUSE
+            }
+            context.startService(intent)
         }
 
         fun update(

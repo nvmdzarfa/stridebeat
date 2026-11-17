@@ -105,10 +105,10 @@ jobs:
           mkdir -p release-output
           if [ "$IS_SIGNED_RELEASE" = "true" ]; then
             ./gradlew assembleRelease --stacktrace
-            cp app/build/outputs/apk/release/app-release.apk release-output/StrideBeat-v0.2.2.apk
+            cp app/build/outputs/apk/release/app-release.apk release-output/StrideBeat-v0.2.3.apk
           else
             ./gradlew assembleDebug --stacktrace
-            cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.2.2-debug.apk
+            cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.2.3-debug.apk
           fi
 
       - name: Verify APK Alignment, Signing (v1/v2/v3), and Manifest
@@ -123,7 +123,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StrideBeat-v0.2.2
+          name: StrideBeat-v0.2.3
           path: release-output/*.apk
           retention-days: 30
 
@@ -131,16 +131,15 @@ jobs:
         if: github.ref == 'refs/heads/main' && env.IS_SIGNED_RELEASE == 'true' && env.HAS_GOOGLE_SERVICES == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.2.2
-          name: StrideBeat v0.2.2 (Auto-Stream Fallback & Multi-Playlist Import)
+          tag_name: v0.2.3
+          name: StrideBeat v0.2.3 (Playlist Next/Previous Navigation & Auto-Resolution Fix)
           body: |
-            ### 🏃 StrideBeat v0.2.2 Release — Auto-Stream Fallback & Multi-Platform Import
+            ### 🏃 StrideBeat v0.2.3 Release — Fix Navigasi Playlist (Next / Previous) & Auto-Resolution
 
-            Unduh file `.apk` di bawah — **bisa langsung di-update di atas `v0.2.1`, `v0.2.0` maupun versi sebelumnya tanpa uninstall!**
-            - 🔄 **Auto-Stream Fallback Resolver**: Pemutaran playlist YouTube kini tidak akan pernah macet atau memunculkan pesan login/error. Jika YouTube memblokir audio langsung (BotGuard/Sign in to confirm you're not a bot), StrideBeat secara instan dan senyap mencari dan memutar track padanan berkualitas tinggi di SoundCloud.
-            - 🌐 **Dukungan Unicode & K-Pop / J-Pop / CJK**: Algoritma pencocokan lagu kini mempertahankan karakter Hangul, Hiragana/Katakana, dan Kanji sehingga lagu Korea/Jepang (seperti Colde - WA-R-R) langsung cocok 100%.
-            - 📑 **Impor Playlist Multi-Platform (YouTube & SoundCloud)**: Dialog impor kini mendukung link playlist YouTube (`youtube.com/playlist?list=...`) maupun set SoundCloud publik (`soundcloud.com/.../sets/...`).
-            - 🎵 **Music Switcher `SoundCloud ↔ YouTube Music`**: Pindah sumber pemutaran kapan saja tanpa memutus tracking lari, pace, GPS, dan metrik olahraga.
-          files: release-output/StrideBeat-v0.2.2.apk
+            Unduh file `.apk` di bawah — **bisa langsung di-update di atas `v0.2.2`, `v0.2.1`, maupun `v0.2.0` tanpa uninstall!**
+            - ⏭️ **Perbaikan Navigasi Tombol Next & Previous**: Mengatasi masalah tombol Next yang macet/mengulang lagu pertama pada playlist impor. Kini antrean lagu berpindah secara berurutan dan otomatis memicu pemutaran track berikutnya.
+            - 🎵 **Resolusi Stream Komprehensif (YouTube & SoundCloud)**: Baik saat memutar di mode YouTube Music maupun SoundCloud, lagu dalam playlist yang belum memiliki URL streaming langsung akan di-resolve secara on-demand tanpa mereset status antrean.
+            - ⏯️ **Interaksi Kartu Playlist yang Intuitif**: Mengetuk tombol play pada playlist yang sedang aktif kini berfungsi sebagai Play/Pause toggle tanpa me-restart lagu ke track pertama.
+          files: release-output/StrideBeat-v0.2.3.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

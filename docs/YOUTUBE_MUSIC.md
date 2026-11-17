@@ -1,13 +1,14 @@
 # Dokumentasi Integrasi YouTube Music — StrideBeat
 
-**Versi:** `0.2.2` (`versionCode 18`)  
-**Status:** Eksperimental / Beta / Tidak Resmi (Milestone M6 + Auto-Stream Resolver)  
+**Versi:** `0.2.3` (`versionCode 19`)  
+**Status:** Eksperimental / Beta / Tidak Resmi (Milestone M6 + Auto-Stream Resolver & Queue Fix)  
 **Feature Flag:** `MusicPreferences.youtubeMusicEnabled` & `YouTubeMusicConfig.isYouTubeMusicEnabled`  
 **Sumber Musik Utama:** SoundCloud (Stabil & Out-of-the-Box) + Auto-Stream Resolver  
 **Keputusan Pemilik:**
 - **Spotify:** Dihapus dari UI aktif karena akun pemilik non-Premium; SoundCloud dan YouTube Music (Beta) menjadi dua sumber musik aktif di switcher.
 - **Login YouTube Music (Celah 1 — Opsi A):** Tombol login Google OAuth dihapus dari UI aktif dan AuthViewModel. Aplikasi murni berjalan dalam **Mode Pencarian Publik (Beta)** tanpa tombol login semu/mati suri.
-- **Auto-Stream Fallback Resolver (v0.2.2):** Mengatasi pembatasan BotGuard YouTube InnerTube (`LOGIN_REQUIRED`). Jika stream audio YouTube diblokir, sistem secara instan dan mulus beralih mencari dan memutar track padanan berkualitas tinggi di SoundCloud tanpa menghentikan sesi atau memunculkan dialog error.
+- **Auto-Stream Fallback Resolver:** Mengatasi pembatasan BotGuard YouTube InnerTube (`LOGIN_REQUIRED`). Jika stream audio YouTube diblokir, sistem secara instan dan mulus beralih mencari dan memutar track padanan berkualitas tinggi di SoundCloud tanpa menghentikan sesi atau memunculkan dialog error.
+- **Playlist Queue & Next/Previous Navigation (v0.2.3):** Memperbaiki navigasi track antrean playlist agar tombol Next dan Previous berpindah secara konsisten (`0 -> 1 -> 2 ...`) dan selalu mengaktifkan pemutaran lagu target secara on-demand.
 - **Impor Playlist Multi-Platform:** Mendukung link playlist YouTube publik maupun set SoundCloud publik.
 
 ---

@@ -126,4 +126,33 @@ class MusicSwitcherTest {
         assertEquals("sc_2", next?.id)
         assertEquals("sc_2", coordinator.currentTrack?.id)
     }
+
+    @Test
+    fun testAdvanceQueueWithRemappedOrCrossPlatformTrack() {
+        val coordinator = MusicQueueCoordinator(
+            initialSource = MusicSource.SOUNDCLOUD,
+            youtubeMusicEnabled = true
+        )
+
+        val ytTrack1 = Track(id = "ytm_1", title = "Song One", artist = "Artist One", durationMs = 180000L)
+        val ytTrack2 = Track(id = "ytm_2", title = "Song Two", artist = "Artist Two", durationMs = 190000L)
+
+        coordinator.setQueue(listOf(ytTrack1, ytTrack2), startingIndex = 0)
+
+        // Skenario: lagu 1 berhasil di-resolve ke SoundCloud sehingga ID-nya berubah menjadi sc_999
+        val remappedTrack1 = Track(
+            id = "sc_999",
+            title = "Song One",
+            artist = "Artist One",
+            durationMs = 180000L,
+            audioUrl = "https://soundcloud.com/stream/999"
+        )
+        coordinator.setCurrentTrackOnly(remappedTrack1)
+
+        val next = coordinator.advanceToNextPlayable { _, _ -> true }
+
+        assertNotNull(next)
+        assertEquals("ytm_2", next?.id)
+        assertEquals("Song Two", next?.title)
+    }
 }

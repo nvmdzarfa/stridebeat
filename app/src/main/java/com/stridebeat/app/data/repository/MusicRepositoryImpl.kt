@@ -71,6 +71,7 @@ class MusicRepositoryImpl @Inject constructor(
     override val unavailableExternalUrl: StateFlow<String?> = _unavailableExternalUrl.asStateFlow()
 
     private var currentQueue: List<Track> = emptyList()
+    private var currentQueueIndex: Int = 0
     private var lastSearchResults: List<Track> = emptyList()
 
     init {
@@ -137,42 +138,63 @@ class MusicRepositoryImpl @Inject constructor(
         val track = _currentTrack.value ?: return
         var playableTrack = track
 
-        // Jika memutar di YouTube Music dan audioUrl belum ada, resolve on-demand
-        if (_activeSource.value == MusicSource.YOUTUBE_MUSIC && playableTrack.audioUrl.isNullOrBlank()) {
-            val videoId = playableTrack.platformIds[MusicSource.YOUTUBE_MUSIC] ?: playableTrack.id.removePrefix("ytm_")
-            val streamResult = youTubeMusicClient.resolveAudioStreamUrl(videoId)
-            when (streamResult) {
-                is StreamResult.Playable -> {
+        // Resolusi audioUrl on-demand jika belum tersedia
+        if (playableTrack.audioUrl.isNullOrBlank()) {
+            var streamResolved = false
+
+            // 1. Coba resolusi YouTube Music jika aktif
+            if (_activeSource.value == MusicSource.YOUTUBE_MUSIC) {
+                val videoId = playableTrack.platformIds[MusicSource.YOUTUBE_MUSIC] ?: playableTrack.id.removePrefix("ytm_")
+                val streamResult = youTubeMusicClient.resolveAudioStreamUrl(videoId)
+                if (streamResult is StreamResult.Playable) {
                     playableTrack = playableTrack.copy(audioUrl = streamResult.audioUrl)
-                    _currentTrack.value = playableTrack
-                    coordinator.setCurrentTrackOnly(playableTrack)
+                    streamResolved = true
                     clearPlaybackNotice()
                 }
-                is StreamResult.Unavailable -> {
-                    // Fallback otomatis transparan ke SoundCloud audio resolver
-                    val query = "${playableTrack.title} ${playableTrack.artist}"
-                    val scCandidates = OnlineMusicSearchEngine.searchTracks(query)
-                    val bestMatch = TrackMatchingEngine.findBestMatch(playableTrack, scCandidates) ?: scCandidates.firstOrNull()
+            }
 
-                    if (bestMatch != null && !bestMatch.audioUrl.isNullOrBlank()) {
-                        playableTrack = playableTrack.copy(
-                            audioUrl = bestMatch.audioUrl,
-                            platformIds = playableTrack.platformIds + (MusicSource.SOUNDCLOUD to (bestMatch.platformIds[MusicSource.SOUNDCLOUD] ?: bestMatch.id))
-                        )
-                        _currentTrack.value = playableTrack
-                        coordinator.setCurrentTrackOnly(playableTrack)
-                        clearPlaybackNotice()
-                    } else {
-                        _playbackNotice.value = streamResult.reason
-                        _unavailableExternalUrl.value = streamResult.externalUri
-                        _isPlaying.value = false
-                        return
-                    }
+            // 2. Fallback transparan / resolusi langsung ke SoundCloud
+            if (!streamResolved) {
+                val cleanArtist = playableTrack.artist.replace("YouTube", "", ignoreCase = true).trim()
+                val query = "${playableTrack.title} $cleanArtist".trim()
+                val scCandidates = OnlineMusicSearchEngine.searchTracks(query)
+                val bestMatch = TrackMatchingEngine.findBestMatch(playableTrack, scCandidates) ?: scCandidates.firstOrNull()
+
+                if (bestMatch != null && !bestMatch.audioUrl.isNullOrBlank()) {
+                    playableTrack = playableTrack.copy(
+                        audioUrl = bestMatch.audioUrl,
+                        platformIds = playableTrack.platformIds + (MusicSource.SOUNDCLOUD to (bestMatch.platformIds[MusicSource.SOUNDCLOUD] ?: bestMatch.id))
+                    )
+                    streamResolved = true
+                    clearPlaybackNotice()
                 }
+            }
+
+            if (!streamResolved) {
+                val failNotice = if (_activeSource.value == MusicSource.YOUTUBE_MUSIC) {
+                    "Lagu ini tidak tersedia di YouTube Music"
+                } else {
+                    "\"${playableTrack.title}\" tidak ditemukan di SoundCloud"
+                }
+                val videoId = playableTrack.platformIds[MusicSource.YOUTUBE_MUSIC] ?: playableTrack.id.removePrefix("ytm_")
+                _playbackNotice.value = failNotice
+                _unavailableExternalUrl.value = "https://music.youtube.com/watch?v=$videoId"
+                _isPlaying.value = false
+                MusicPlaybackService.pause(context)
+                return
+            }
+
+            _currentTrack.value = playableTrack
+            coordinator.setCurrentTrackOnly(playableTrack)
+            if (currentQueueIndex in currentQueue.indices) {
+                val updatedQueue = currentQueue.toMutableList()
+                updatedQueue[currentQueueIndex] = playableTrack
+                currentQueue = updatedQueue
             }
         }
 
         _isPlaying.value = true
+        clearPlaybackNotice()
         recordPlayedTrack(playableTrack)
         MusicPlaybackService.update(context, playableTrack, true, _activeSource.value)
     }
@@ -189,53 +211,55 @@ class MusicRepositoryImpl @Inject constructor(
     }
 
     override suspend fun skipToNext() {
-        if (currentQueue.isEmpty()) return
-
-        val currentIndex = currentQueue.indexOfFirst { it.id == _currentTrack.value?.id }
-        val nextIndex = if (currentIndex != -1) (currentIndex + 1) % currentQueue.size else 0
-        var candidate = currentQueue[nextIndex]
-
-        // Jika di YouTube Music dan audioUrl belum ada, coba resolusi cepat
-        if (_activeSource.value == MusicSource.YOUTUBE_MUSIC && candidate.audioUrl.isNullOrBlank()) {
-            val vid = candidate.platformIds[MusicSource.YOUTUBE_MUSIC] ?: candidate.id.removePrefix("ytm_")
-            val stream = youTubeMusicClient.resolveAudioStreamUrl(vid)
-            if (stream is StreamResult.Playable) {
-                candidate = candidate.copy(audioUrl = stream.audioUrl)
-                clearPlaybackNotice()
+        if (currentQueue.isEmpty()) {
+            val pl = _activePlaylist.value
+            if (pl != null && pl.tracks.isNotEmpty()) {
+                currentQueue = pl.tracks
+                currentQueueIndex = 0
+            } else {
+                return
             }
         }
+
+        val foundIndex = currentQueue.indexOfFirst {
+            it.id == _currentTrack.value?.id ||
+            (it.title.equals(_currentTrack.value?.title, ignoreCase = true) && it.artist.equals(_currentTrack.value?.artist, ignoreCase = true))
+        }
+        val baseIndex = if (foundIndex != -1) foundIndex else currentQueueIndex
+        currentQueueIndex = (baseIndex + 1) % currentQueue.size
+        val candidate = currentQueue[currentQueueIndex]
 
         _currentTrack.value = candidate
         coordinator.setCurrentTrackOnly(candidate)
         _playbackPositionMs.value = 0L
 
-        if (_isPlaying.value) {
-            play()
-        }
+        play()
     }
 
     override suspend fun skipToPrevious() {
-        if (currentQueue.isEmpty()) return
-
-        val currentIndex = currentQueue.indexOfFirst { it.id == _currentTrack.value?.id }
-        val prevIndex = if (currentIndex > 0) currentIndex - 1 else currentQueue.size - 1
-        var candidate = currentQueue[prevIndex]
-
-        if (_activeSource.value == MusicSource.YOUTUBE_MUSIC && candidate.audioUrl.isNullOrBlank()) {
-            val vid = candidate.platformIds[MusicSource.YOUTUBE_MUSIC] ?: candidate.id.removePrefix("ytm_")
-            val stream = youTubeMusicClient.resolveAudioStreamUrl(vid)
-            if (stream is StreamResult.Playable) {
-                candidate = candidate.copy(audioUrl = stream.audioUrl)
+        if (currentQueue.isEmpty()) {
+            val pl = _activePlaylist.value
+            if (pl != null && pl.tracks.isNotEmpty()) {
+                currentQueue = pl.tracks
+                currentQueueIndex = 0
+            } else {
+                return
             }
         }
+
+        val foundIndex = currentQueue.indexOfFirst {
+            it.id == _currentTrack.value?.id ||
+            (it.title.equals(_currentTrack.value?.title, ignoreCase = true) && it.artist.equals(_currentTrack.value?.artist, ignoreCase = true))
+        }
+        val baseIndex = if (foundIndex != -1) foundIndex else currentQueueIndex
+        currentQueueIndex = if (baseIndex > 0) baseIndex - 1 else currentQueue.size - 1
+        val candidate = currentQueue[currentQueueIndex]
 
         _currentTrack.value = candidate
         coordinator.setCurrentTrackOnly(candidate)
         _playbackPositionMs.value = 0L
 
-        if (_isPlaying.value) {
-            play()
-        }
+        play()
     }
 
     override suspend fun seekTo(positionMs: Long) {
@@ -268,12 +292,23 @@ class MusicRepositoryImpl @Inject constructor(
             }
 
             // Cari lagu yang setara di SoundCloud
-            val query = "${activeTrack.title} ${activeTrack.artist}"
+            val cleanArtist = activeTrack.artist.replace("YouTube", "", ignoreCase = true).trim()
+            val query = "${activeTrack.title} $cleanArtist".trim()
             val searchResults = OnlineMusicSearchEngine.searchTracks(query)
-            val matched = TrackMatchingEngine.findBestMatch(activeTrack, searchResults)
+            val matched = TrackMatchingEngine.findBestMatch(activeTrack, searchResults) ?: searchResults.firstOrNull()
             if (matched != null && !matched.audioUrl.isNullOrBlank()) {
-                _currentTrack.value = matched
-                coordinator.setCurrentTrackOnly(matched)
+                val updatedTrack = activeTrack.copy(
+                    audioUrl = matched.audioUrl,
+                    platformIds = activeTrack.platformIds + (MusicSource.SOUNDCLOUD to (matched.platformIds[MusicSource.SOUNDCLOUD] ?: matched.id))
+                )
+                _currentTrack.value = updatedTrack
+                coordinator.setCurrentTrackOnly(updatedTrack)
+                if (currentQueueIndex in currentQueue.indices) {
+                    val updatedQueue = currentQueue.toMutableList()
+                    updatedQueue[currentQueueIndex] = updatedTrack
+                    currentQueue = updatedQueue
+                }
+                clearPlaybackNotice()
                 if (_isPlaying.value) play()
             } else {
                 _playbackNotice.value = "\"${activeTrack.title}\" tidak ditemukan di SoundCloud"
@@ -299,6 +334,11 @@ class MusicRepositoryImpl @Inject constructor(
                         )
                         _currentTrack.value = updated
                         coordinator.setCurrentTrackOnly(updated)
+                        if (currentQueueIndex in currentQueue.indices) {
+                            val updatedQueue = currentQueue.toMutableList()
+                            updatedQueue[currentQueueIndex] = updated
+                            currentQueue = updatedQueue
+                        }
                         clearPlaybackNotice()
                         if (_isPlaying.value) play()
                     }
@@ -316,22 +356,33 @@ class MusicRepositoryImpl @Inject constructor(
     override suspend fun selectPlaylist(playlist: WorkoutPlaylist) {
         _activePlaylist.value = playlist
         currentQueue = playlist.tracks
+        currentQueueIndex = 0
         coordinator.setQueue(playlist.tracks)
         if (playlist.tracks.isNotEmpty()) {
             val first = playlist.tracks.first()
             _currentTrack.value = first
             coordinator.setCurrentTrackOnly(first)
             _playbackPositionMs.value = 0L
+            play()
         }
     }
 
     override suspend fun playTrack(track: Track) {
         if (lastSearchResults.any { it.id == track.id }) {
             currentQueue = lastSearchResults
-        } else if (!currentQueue.any { it.id == track.id }) {
-            currentQueue = listOf(track)
+            currentQueueIndex = currentQueue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
+        } else {
+            val idx = currentQueue.indexOfFirst {
+                it.id == track.id || (it.title.equals(track.title, ignoreCase = true) && it.artist.equals(track.artist, ignoreCase = true))
+            }
+            if (idx != -1) {
+                currentQueueIndex = idx
+            } else {
+                currentQueue = listOf(track)
+                currentQueueIndex = 0
+            }
         }
-        coordinator.setQueue(currentQueue, startingIndex = currentQueue.indexOfFirst { it.id == track.id })
+        coordinator.setQueue(currentQueue, startingIndex = currentQueueIndex)
 
         _currentTrack.value = track
         coordinator.setCurrentTrackOnly(track)

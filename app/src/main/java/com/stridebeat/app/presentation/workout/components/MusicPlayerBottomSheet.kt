@@ -790,7 +790,11 @@ fun MusicPlayerBottomSheet(
                                     cornerRadius = 16.dp,
                                     elevated = isActive,
                                     accentBorderColor = if (isActive) glass.primary else null,
-                                    onClick = { onSelectPlaylist(playlist) }
+                                    onClick = {
+                                        if (!isActive) {
+                                            onSelectPlaylist(playlist)
+                                        }
+                                    }
                                 ) {
                                     Row(
                                         modifier = Modifier
@@ -859,7 +863,13 @@ fun MusicPlayerBottomSheet(
                                             }
 
                                             FilledIconButton(
-                                                onClick = { onSelectPlaylist(playlist) },
+                                                onClick = {
+                                                    if (isActive) {
+                                                        onTogglePlayPause()
+                                                    } else {
+                                                        onSelectPlaylist(playlist)
+                                                    }
+                                                },
                                                 modifier = Modifier.size(36.dp),
                                                 colors = IconButtonDefaults.filledIconButtonColors(
                                                     containerColor = if (isActive) glass.primary else glass.glassElevatedTop,

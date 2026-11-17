@@ -92,7 +92,10 @@ class MusicQueueCoordinator(
     ): Track? {
         if (queue.isEmpty()) return null
 
-        val startIndex = queue.indexOfFirst { it.id == currentTrack?.id }
+        val startIndex = queue.indexOfFirst {
+            it.id == currentTrack?.id ||
+            (it.title.equals(currentTrack?.title, ignoreCase = true) && it.artist.equals(currentTrack?.artist, ignoreCase = true))
+        }
         val effectiveStart = if (startIndex != -1) startIndex else 0
 
         for (step in 1..queue.size) {
