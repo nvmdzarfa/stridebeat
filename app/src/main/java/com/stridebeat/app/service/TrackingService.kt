@@ -15,6 +15,7 @@ import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.*
 import com.stridebeat.app.MainActivity
 import com.stridebeat.app.R
+import com.stridebeat.app.data.local.WorkoutPreferences
 import com.stridebeat.app.domain.model.WorkoutType
 import com.stridebeat.app.util.TrackingUtils
 import kotlinx.coroutines.*
@@ -30,6 +31,13 @@ class TrackingService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var timerJob: Job? = null
+    private var splitJob: Job? = null
+    private var autoPauseJob: Job? = null
+
+    private lateinit var workoutPreferences: WorkoutPreferences
+    private lateinit var voiceAudioCueManager: VoiceAudioCueManager
+    private var lastAnnouncedMilestone = 0
+    private var lastMilestoneElapsedMs = 0L
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
@@ -37,6 +45,8 @@ class TrackingService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        workoutPreferences = WorkoutPreferences(applicationContext)
+        voiceAudioCueManager = VoiceAudioCueManager(this, workoutPreferences)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
         locationCallback = object : LocationCallback() {
@@ -62,10 +72,12 @@ class TrackingService : Service() {
             }
             ACTION_PAUSE -> {
                 TrackingStateManager.pauseSession(manual = true)
+                voiceAudioCueManager.speakWorkoutPaused()
                 updateNotification()
             }
             ACTION_RESUME -> {
                 TrackingStateManager.resumeSession()
+                voiceAudioCueManager.speakWorkoutResumed()
                 updateNotification()
             }
             ACTION_STOP -> {
@@ -95,6 +107,11 @@ class TrackingService : Service() {
             // Izin lokasi belum diberikan
         }
 
+        // Voice cue: Sesi dimulai
+        lastAnnouncedMilestone = 0
+        lastMilestoneElapsedMs = 0L
+        voiceAudioCueManager.speakWorkoutStarted(workoutType)
+
         // Timer ticker setiap detik
         timerJob?.cancel()
         timerJob = serviceScope.launch {
@@ -102,6 +119,49 @@ class TrackingService : Service() {
                 delay(1000L)
                 TrackingStateManager.addDurationTick(1000L)
                 updateNotification()
+            }
+        }
+
+        // Monitor jarak untuk Voice Audio Cues (KM Split)
+        splitJob?.cancel()
+        splitJob = serviceScope.launch {
+            var intervalKm = workoutPreferences.getVoiceCueIntervalKmOnce().coerceAtLeast(0.5)
+            launch {
+                workoutPreferences.voiceCueIntervalKm.collect { interval ->
+                    intervalKm = interval.coerceAtLeast(0.5)
+                }
+            }
+
+            TrackingStateManager.distanceMeters.collect { distance ->
+                val intervalMeters = intervalKm * 1000.0
+                val currentMilestone = (distance / intervalMeters).toInt()
+                if (currentMilestone > lastAnnouncedMilestone && currentMilestone > 0) {
+                    val currentElapsed = TrackingStateManager.elapsedDurationMs.value
+                    val splitDuration = currentElapsed - lastMilestoneElapsedMs
+                    lastMilestoneElapsedMs = currentElapsed
+                    lastAnnouncedMilestone = currentMilestone
+
+                    val kmNumber = (currentMilestone * intervalKm).toInt()
+                    voiceAudioCueManager.speakKmSplit(
+                        km = if (kmNumber > 0) kmNumber else currentMilestone,
+                        splitDurationMs = splitDuration,
+                        averagePaceMinPerKm = TrackingStateManager.currentPaceMinPerKm.value
+                    )
+                }
+            }
+        }
+
+        // Monitor perubahan status Auto-Pause untuk voice cues
+        autoPauseJob?.cancel()
+        autoPauseJob = serviceScope.launch {
+            var wasAutoPaused = false
+            TrackingStateManager.isAutoPaused.collect { isAutoPaused ->
+                if (isAutoPaused && !wasAutoPaused) {
+                    voiceAudioCueManager.speak("Auto-pause diaktifkan.", flush = true)
+                } else if (!isAutoPaused && wasAutoPaused) {
+                    voiceAudioCueManager.speak("Workout dilanjutkan.", flush = true)
+                }
+                wasAutoPaused = isAutoPaused
             }
         }
     }
@@ -154,15 +214,34 @@ class TrackingService : Service() {
     }
 
     private fun stopTrackingService() {
+        val finalDistance = TrackingStateManager.distanceMeters.value
+        val finalDuration = TrackingStateManager.elapsedDurationMs.value
+        if (finalDistance > 50.0 || finalDuration > 10000L) {
+            voiceAudioCueManager.speakWorkoutCompleted(finalDistance, finalDuration)
+        }
+
         timerJob?.cancel()
+        splitJob?.cancel()
+        autoPauseJob?.cancel()
         fusedLocationClient.removeLocationUpdates(locationCallback)
-        serviceScope.cancel()
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+
+        serviceScope.launch {
+            delay(3500L)
+            voiceAudioCueManager.shutdown()
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        }
     }
 
     override fun onDestroy() {
-        stopTrackingService()
+        timerJob?.cancel()
+        splitJob?.cancel()
+        autoPauseJob?.cancel()
+        try {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+        } catch (_: Exception) {}
+        voiceAudioCueManager.shutdown()
+        serviceScope.cancel()
         super.onDestroy()
     }
 

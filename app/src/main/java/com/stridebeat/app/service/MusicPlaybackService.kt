@@ -208,6 +208,11 @@ class MusicPlaybackService : Service() {
         isPlayingState = false
     }
 
+    fun setDucking(isDucked: Boolean) {
+        val targetVolume = if (isDucked) 0.25f else 1.0f
+        exoPlayer?.volume = targetVolume
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
         if (action != null) {
@@ -219,6 +224,10 @@ class MusicPlaybackService : Service() {
                 ACTION_SEEK_TO -> {
                     val pos = intent.getLongExtra(EXTRA_SEEK_POSITION, 0L)
                     seekToPosition(pos)
+                }
+                ACTION_SET_DUCKING -> {
+                    val isDucked = intent.getBooleanExtra(EXTRA_IS_DUCKED, false)
+                    setDucking(isDucked)
                 }
             }
             return START_NOT_STICKY
@@ -471,6 +480,8 @@ class MusicPlaybackService : Service() {
         const val ACTION_SKIP_PREVIOUS = "com.stridebeat.app.action.SKIP_PREVIOUS"
         const val ACTION_SEEK_TO = "com.stridebeat.app.action.SEEK_TO"
         const val EXTRA_SEEK_POSITION = "extra_seek_position"
+        const val ACTION_SET_DUCKING = "com.stridebeat.app.action.SET_DUCKING"
+        const val EXTRA_IS_DUCKED = "extra_is_ducked"
 
         var onSkipNextListener: (() -> Unit)? = null
         var onSkipPreviousListener: (() -> Unit)? = null
@@ -498,6 +509,19 @@ class MusicPlaybackService : Service() {
                 action = ACTION_PAUSE
             }
             context.startService(intent)
+        }
+
+        fun setVolumeDucking(context: Context, isDucked: Boolean) {
+            val service = activeServiceInstance
+            if (service != null) {
+                service.setDucking(isDucked)
+            } else {
+                val intent = Intent(context, MusicPlaybackService::class.java).apply {
+                    action = ACTION_SET_DUCKING
+                    putExtra(EXTRA_IS_DUCKED, isDucked)
+                }
+                context.startService(intent)
+            }
         }
 
         fun update(

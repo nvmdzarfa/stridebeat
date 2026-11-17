@@ -39,6 +39,7 @@ import com.stridebeat.app.presentation.strava.StravaViewModel
 import com.stridebeat.app.presentation.theme.*
 import com.stridebeat.app.presentation.update.UpdateViewModel
 import com.stridebeat.app.presentation.workout.MusicViewModel
+import com.stridebeat.app.presentation.workout.WorkoutViewModel
 
 @Composable
 fun SettingsScreen(
@@ -47,7 +48,8 @@ fun SettingsScreen(
     updateViewModel: UpdateViewModel = hiltViewModel(),
     accountViewModel: AccountViewModel = hiltViewModel(),
     stravaViewModel: StravaViewModel = hiltViewModel(),
-    musicViewModel: MusicViewModel = hiltViewModel()
+    musicViewModel: MusicViewModel = hiltViewModel(),
+    workoutViewModel: WorkoutViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
@@ -59,6 +61,10 @@ fun SettingsScreen(
     val isImportingStrava by stravaViewModel.isImporting.collectAsStateWithLifecycle()
     val stravaStatusMessage by stravaViewModel.statusMessage.collectAsStateWithLifecycle()
 
+    val voiceCueEnabled by workoutViewModel.voiceCueEnabled.collectAsStateWithLifecycle()
+    val voiceCueIntervalKm by workoutViewModel.voiceCueIntervalKm.collectAsStateWithLifecycle()
+    val autoPauseEnabled by workoutViewModel.autoPauseEnabled.collectAsStateWithLifecycle()
+    val isKmUnit by workoutViewModel.isKmUnit.collectAsStateWithLifecycle()
 
     val userProfile by accountViewModel.userProfile.collectAsStateWithLifecycle()
     val isSigningIn by accountViewModel.isSigningIn.collectAsStateWithLifecycle()
@@ -77,8 +83,6 @@ fun SettingsScreen(
     var showEditNameDialog by remember { mutableStateOf(false) }
     var editNameInput by remember { mutableStateOf("") }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
-    var isKmUnit by remember { mutableStateOf(true) }
-    var isAutoPauseEnabled by remember { mutableStateOf(true) }
 
     val notifPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -806,6 +810,7 @@ fun SettingsScreen(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // Toggle Panduan Suara (TTS)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -813,19 +818,19 @@ fun SettingsScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Satuan Jarak",
+                            text = "Panduan Suara (Audio Cue)",
                             style = MaterialTheme.typography.titleMedium,
                             color = glass.textPrimary
                         )
                         Text(
-                            text = if (isKmUnit) "Kilometer (km)" else "Mil (mi)",
+                            text = "Laporan suara jarak split, waktu, & pace saat olahraga lewat Text-to-Speech",
                             style = MaterialTheme.typography.bodySmall,
                             color = glass.textSecondary
                         )
                     }
                     Switch(
-                        checked = isKmUnit,
-                        onCheckedChange = { isKmUnit = it },
+                        checked = voiceCueEnabled,
+                        onCheckedChange = { workoutViewModel.setVoiceCueEnabled(it) },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = glass.primary,
                             checkedTrackColor = glass.primary.copy(alpha = 0.3f),
@@ -833,6 +838,45 @@ fun SettingsScreen(
                             uncheckedTrackColor = glass.trackBarInactive
                         )
                     )
+                }
+
+                if (voiceCueEnabled) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Interval Laporan Suara",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = glass.textSecondary
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(0.5 to "500 m", 1.0 to "1.0 km", 2.0 to "2.0 km").forEach { (interval, label) ->
+                                val isSelected = Math.abs(voiceCueIntervalKm - interval) < 0.01
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (isSelected) glass.primary.copy(alpha = 0.2f) else glass.cardBackground)
+                                        .border(
+                                            width = 1.dp,
+                                            color = if (isSelected) glass.primary else glass.cardBorder,
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable { workoutViewModel.setVoiceCueIntervalKm(interval) }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = if (isSelected) glass.primary else glass.textPrimary,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
                 GlassDivider()
@@ -855,8 +899,39 @@ fun SettingsScreen(
                         )
                     }
                     Switch(
-                        checked = isAutoPauseEnabled,
-                        onCheckedChange = { isAutoPauseEnabled = it },
+                        checked = autoPauseEnabled,
+                        onCheckedChange = { workoutViewModel.setAutoPauseEnabled(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = glass.primary,
+                            checkedTrackColor = glass.primary.copy(alpha = 0.3f),
+                            uncheckedThumbColor = glass.textMuted,
+                            uncheckedTrackColor = glass.trackBarInactive
+                        )
+                    )
+                }
+
+                GlassDivider()
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Satuan Jarak",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = glass.textPrimary
+                        )
+                        Text(
+                            text = if (isKmUnit) "Kilometer (km)" else "Mil (mi)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = glass.textSecondary
+                        )
+                    }
+                    Switch(
+                        checked = isKmUnit,
+                        onCheckedChange = { workoutViewModel.setIsKmUnit(it) },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = glass.primary,
                             checkedTrackColor = glass.primary.copy(alpha = 0.3f),
