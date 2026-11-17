@@ -1,6 +1,6 @@
 # Dokumentasi Integrasi YouTube Music — StrideBeat
 
-**Versi:** `0.2.0` (`versionCode 16`)  
+**Versi:** `0.2.1` (`versionCode 17`)  
 **Status:** Eksperimental / Beta / Tidak Resmi (Milestone M6)  
 **Feature Flag:** `MusicPreferences.youtubeMusicEnabled` & `YouTubeMusicConfig.isYouTubeMusicEnabled`  
 **Sumber Musik Utama:** SoundCloud (Stabil & Out-of-the-Box)  
