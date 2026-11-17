@@ -8,6 +8,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -294,12 +295,13 @@ fun WorkoutScreen(
                     WorkoutTarget(WorkoutTargetType.DURATION, targetDurationMs = 60 * 60 * 1000L) to "60 mnt"
                 )
 
-                androidx.compose.foundation.lazy.LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(horizontal = 2.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(targetOptions.size) { idx ->
-                        val (optTarget, label) = targetOptions[idx]
+                    targetOptions.forEach { (optTarget, label) ->
                         val isSelected = (optTarget.type == selectedTarget.type) &&
                             (optTarget.targetDistanceMeters == selectedTarget.targetDistanceMeters) &&
                             (optTarget.targetDurationMs == selectedTarget.targetDurationMs)
@@ -605,7 +607,7 @@ fun WorkoutScreen(
                         }
 
                         LinearProgressIndicator(
-                            progress = { progress },
+                            progress = progress,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(6.dp)

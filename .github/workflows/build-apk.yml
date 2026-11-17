@@ -104,14 +104,24 @@ jobs:
           echo "Extracted App Version: $VERSION"
 
       - name: Run Unit Tests
-        run: ./gradlew testDebugUnitTest --stacktrace
+        run: |
+          ./gradlew testDebugUnitTest --stacktrace > test_build.log 2>&1 || {
+            echo "### ❌ Gradle testDebugUnitTest Failed" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -n 150 test_build.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat test_build.log | tail -n 120
+            exit 1
+          }
 
       - name: Upload Test Report on Failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: unit-test-results
-          path: app/build/reports/tests/
+          path: |
+            app/build/reports/tests/
+            test_build.log
 
       - name: Build APK with Gradle
         run: |

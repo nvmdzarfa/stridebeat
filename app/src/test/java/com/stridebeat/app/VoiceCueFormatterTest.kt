@@ -1,8 +1,11 @@
 package com.stridebeat.app
 
+import com.stridebeat.app.domain.model.WorkoutTarget
+import com.stridebeat.app.domain.model.WorkoutTargetType
 import com.stridebeat.app.domain.model.WorkoutType
 import com.stridebeat.app.util.VoiceCueFormatter
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -103,29 +106,29 @@ class VoiceCueFormatterTest {
 
     @Test
     fun testWorkoutTargetProgress() {
-        val targetNone = com.stridebeat.app.domain.model.WorkoutTarget()
-        assertEquals(false, targetNone.isActive)
-        assertEquals(0f, targetNone.calculateProgress(1000.0, 60000L), 0.001f)
+        val targetNone = WorkoutTarget()
+        assertFalse(targetNone.isActive)
+        assertEquals(0.0, targetNone.calculateProgress(1000.0, 60000L).toDouble(), 0.001)
 
-        val targetDist5k = com.stridebeat.app.domain.model.WorkoutTarget(
-            type = com.stridebeat.app.domain.model.WorkoutTargetType.DISTANCE,
+        val targetDist5k = WorkoutTarget(
+            type = WorkoutTargetType.DISTANCE,
             targetDistanceMeters = 5000.0
         )
-        assertEquals(true, targetDist5k.isActive)
-        assertEquals(0f, targetDist5k.calculateProgress(0.0, 0L), 0.001f)
-        assertEquals(0.5f, targetDist5k.calculateProgress(2500.0, 900000L), 0.001f)
-        assertEquals(1.0f, targetDist5k.calculateProgress(5000.0, 1800000L), 0.001f)
+        assertTrue(targetDist5k.isActive)
+        assertEquals(0.0, targetDist5k.calculateProgress(0.0, 0L).toDouble(), 0.001)
+        assertEquals(0.5, targetDist5k.calculateProgress(2500.0, 900000L).toDouble(), 0.001)
+        assertEquals(1.0, targetDist5k.calculateProgress(5000.0, 1800000L).toDouble(), 0.001)
         // Coerced at 1f
-        assertEquals(1.0f, targetDist5k.calculateProgress(6000.0, 2000000L), 0.001f)
+        assertEquals(1.0, targetDist5k.calculateProgress(6000.0, 2000000L).toDouble(), 0.001)
 
-        val targetDur30m = com.stridebeat.app.domain.model.WorkoutTarget(
-            type = com.stridebeat.app.domain.model.WorkoutTargetType.DURATION,
+        val targetDur30m = WorkoutTarget(
+            type = WorkoutTargetType.DURATION,
             targetDurationMs = 30 * 60 * 1000L
         )
-        assertEquals(true, targetDur30m.isActive)
-        assertEquals(0f, targetDur30m.calculateProgress(0.0, 0L), 0.001f)
-        assertEquals(0.5f, targetDur30m.calculateProgress(2500.0, 15 * 60 * 1000L), 0.001f)
-        assertEquals(1.0f, targetDur30m.calculateProgress(5000.0, 30 * 60 * 1000L), 0.001f)
-        assertEquals(1.0f, targetDur30m.calculateProgress(6000.0, 45 * 60 * 1000L), 0.001f)
+        assertTrue(targetDur30m.isActive)
+        assertEquals(0.0, targetDur30m.calculateProgress(0.0, 0L).toDouble(), 0.001)
+        assertEquals(0.5, targetDur30m.calculateProgress(2500.0, 15 * 60 * 1000L).toDouble(), 0.001)
+        assertEquals(1.0, targetDur30m.calculateProgress(5000.0, 30 * 60 * 1000L).toDouble(), 0.001)
+        assertEquals(1.0, targetDur30m.calculateProgress(6000.0, 45 * 60 * 1000L).toDouble(), 0.001)
     }
 }
