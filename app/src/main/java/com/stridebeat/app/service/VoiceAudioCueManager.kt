@@ -70,7 +70,6 @@ class VoiceAudioCueManager(
                         applyAudioDucking(false)
                     }
 
-                    @Deprecated("Deprecated in Java")
                     override fun onError(utteranceId: String?) {
                         applyAudioDucking(false)
                     }

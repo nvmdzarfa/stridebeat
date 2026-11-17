@@ -104,7 +104,22 @@ jobs:
           echo "Extracted App Version: $VERSION"
 
       - name: Run Unit Tests
-        run: ./gradlew testDebugUnitTest --stacktrace
+        run: |
+          ./gradlew testDebugUnitTest --info --stacktrace || {
+            echo "::error::Unit Tests Failed. Printing reports below:"
+            for f in $(find app/build/reports/tests/testDebugUnitTest/ -name "*.html" 2>/dev/null); do
+              echo "FILE: $f"
+              cat "$f" | grep -A 5 -B 2 "failure" || true
+            done
+            exit 1
+          }
+
+      - name: Upload Test Report on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: app/build/reports/tests/
 
       - name: Build APK with Gradle
         run: |
