@@ -11,7 +11,7 @@
 
 ## 📌 Status Pengembangan
 
-- **Versi Terkini:** `v0.2.1` (`versionCode = 17`)
+- **Versi Terkini:** `v0.2.2` (`versionCode = 18`)
 - **Platform:** Android Native (100% Kotlin + Jetpack Compose Material 3)
 - **Package Name:** `com.stridebeat.app`
 - **Min SDK:** 26 (Android 8.0 Oreo) | **Target SDK:** 35 (Android 15)
@@ -23,7 +23,7 @@
   - ✅ **M3 — Musik & Playback:** Selesai (SoundCloud API full-track >45 detik + Media3 ExoPlayer HLS/MP3, Media Notification & Lock Screen dengan cover album, pencatatan otomatis lagu per sesi).
   - ✅ **M4 — Recap, Riwayat & Export GPX:** Selesai (Room local SQLite database `stridebeat.db`, ekspor rute universal GPX 1.1, rekap metrik + lagu, share teks, cek update GitHub Releases).
   - ✅ **M5 — Strava Native (Phase 2):** Selesai (Strava OAuth 2.0 + PKCE + auto-refresh token AES-256 GCM, Upload ke Strava via GPX `POST /uploads` & fallback `POST /activities`, WorkManager offline queue + notifikasi, auto-upload opsional default MATI, impor 30 aktivitas Strava terbaru dengan deduplikasi).
-  - ✅ **M6 — YouTube Music (Beta) + Music Switcher & Impor Playlist:** Selesai Implementasi & CI (Multi-source switcher `SoundCloud ↔ YouTube Music`, InnerTube API `/search` & `/player`, fitur Impor Playlist YouTube publik puluhan hingga 100+ lagu dengan penyimpanan lokal DataStore, feature flag kill-switch di Pengaturan, Spotify disembunyikan dari UI aktif per keputusan pemilik, YouTube Music murni Mode Pencarian Publik Beta).
+  - ✅ **M6 — YouTube Music (Beta) + Auto-Stream Resolver & Impor Playlist Multi-Platform:** Selesai Implementasi & CI (Multi-source switcher `SoundCloud ↔ YouTube Music`, InnerTube API `/search` & playlist parser, auto-stream transparent fallback ke SoundCloud saat InnerTube BotGuard membatasi stream langsung, dukungan Unicode/CJK/Hangul, impor playlist YouTube & SoundCloud publik dengan penyimpanan lokal DataStore, feature flag kill-switch di Pengaturan).
   - ⏳ **M7 — Musik Mengikuti Pace + Audio Cue:** Belum dikerjakan.
   - ⏳ **M8 — Statistik Lanjutan + Share Gambar:** Belum dikerjakan.
 

@@ -105,10 +105,10 @@ jobs:
           mkdir -p release-output
           if [ "$IS_SIGNED_RELEASE" = "true" ]; then
             ./gradlew assembleRelease --stacktrace
-            cp app/build/outputs/apk/release/app-release.apk release-output/StrideBeat-v0.2.1.apk
+            cp app/build/outputs/apk/release/app-release.apk release-output/StrideBeat-v0.2.2.apk
           else
             ./gradlew assembleDebug --stacktrace
-            cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.2.1-debug.apk
+            cp app/build/outputs/apk/debug/app-debug.apk release-output/StrideBeat-v0.2.2-debug.apk
           fi
 
       - name: Verify APK Alignment, Signing (v1/v2/v3), and Manifest
@@ -123,7 +123,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StrideBeat-v0.2.1
+          name: StrideBeat-v0.2.2
           path: release-output/*.apk
           retention-days: 30
 
@@ -131,18 +131,16 @@ jobs:
         if: github.ref == 'refs/heads/main' && env.IS_SIGNED_RELEASE == 'true' && env.HAS_GOOGLE_SERVICES == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.2.1
-          name: StrideBeat v0.2.1 (Import Playlist YouTube + YouTube Music Beta)
+          tag_name: v0.2.2
+          name: StrideBeat v0.2.2 (Auto-Stream Fallback & Multi-Playlist Import)
           body: |
-            ### 🏃 StrideBeat v0.2.1 Release — Milestone M6 (Import Playlist YouTube + YouTube Music Beta)
+            ### 🏃 StrideBeat v0.2.2 Release — Auto-Stream Fallback & Multi-Platform Import
 
-            Unduh file `.apk` di bawah — **bisa langsung di-update di atas `v0.2.0` maupun `v0.1.2` tanpa uninstall!**
-            - 📑 **Impor Playlist YouTube/YouTube Music**: Tempel link playlist (misal `https://music.youtube.com/playlist?list=...`) untuk mengambil puluhan hingga 100+ lagu secara instan.
-            - 💾 **Penyimpanan Playlist Lokal**: Playlist tersimpan secara persisten di HP via DataStore tanpa risiko konflik migrasi database SQLite Room.
-            - 🎵 **Music Switcher `SoundCloud ↔ YouTube Music`**: Ganti sumber pemutaran secara fleksibel di mini-player & bottom sheet tanpa pernah mereset durasi, jarak, pace, atau GPS tracking olahraga di `TrackingService`.
-            - 🔴 **YouTube Music (Beta / Tidak Resmi)**: Integrasi pencarian katalog publik dan resolusi direct audio stream on-demand InnerTube API dengan penanganan aman terhadap penolakan 403 / cipher.
-            - 🛡️ **Feature Flag & Kill Switch**: Kontrol aktivasi YouTube Music dari menu Pengaturan (tersimpan di `DataStore Preferences`), otomatis beralih ke SoundCloud jika dinonaktifkan.
-            - 🧹 **Pembersihan Spotify UI & Kompatibilitas Riwayat**: Spotify disembunyikan dari UI Pengaturan dan Pemutar sesuai keputusan pemilik (akun non-Premium), dan riwayat sesi lama tetap terbaca mulus dengan remapping transparan.
-          files: release-output/StrideBeat-v0.2.1.apk
+            Unduh file `.apk` di bawah — **bisa langsung di-update di atas `v0.2.1`, `v0.2.0` maupun versi sebelumnya tanpa uninstall!**
+            - 🔄 **Auto-Stream Fallback Resolver**: Pemutaran playlist YouTube kini tidak akan pernah macet atau memunculkan pesan login/error. Jika YouTube memblokir audio langsung (BotGuard/Sign in to confirm you're not a bot), StrideBeat secara instan dan senyap mencari dan memutar track padanan berkualitas tinggi di SoundCloud.
+            - 🌐 **Dukungan Unicode & K-Pop / J-Pop / CJK**: Algoritma pencocokan lagu kini mempertahankan karakter Hangul, Hiragana/Katakana, dan Kanji sehingga lagu Korea/Jepang (seperti Colde - WA-R-R) langsung cocok 100%.
+            - 📑 **Impor Playlist Multi-Platform (YouTube & SoundCloud)**: Dialog impor kini mendukung link playlist YouTube (`youtube.com/playlist?list=...`) maupun set SoundCloud publik (`soundcloud.com/.../sets/...`).
+            - 🎵 **Music Switcher `SoundCloud ↔ YouTube Music`**: Pindah sumber pemutaran kapan saja tanpa memutus tracking lari, pace, GPS, dan metrik olahraga.
+          files: release-output/StrideBeat-v0.2.2.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

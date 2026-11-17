@@ -709,14 +709,14 @@ fun MusicPlayerBottomSheet(
                                 Icon(
                                     imageVector = Icons.Default.Add,
                                     contentDescription = null,
-                                    tint = YouTubeBrand,
+                                    tint = glass.primary,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "Impor YouTube",
+                                    text = "Impor Playlist",
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = YouTubeBrand,
+                                    color = glass.primary,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -837,7 +837,7 @@ fun MusicPlayerBottomSheet(
                                                     maxLines = 1
                                                 )
                                                 Text(
-                                                    text = "${playlist.tracks.size} Lagu • Diimpor dari YouTube",
+                                                    text = "${playlist.tracks.size} Lagu • ${playlist.source.displayName}",
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = glass.textSecondary,
                                                     maxLines = 1
@@ -1050,11 +1050,11 @@ fun MusicPlayerBottomSheet(
                     Icon(
                         imageVector = Icons.Default.PlaylistAdd,
                         contentDescription = null,
-                        tint = YouTubeBrand,
+                        tint = glass.primary,
                         modifier = Modifier.size(24.dp)
                     )
                     Text(
-                        text = "Impor Playlist YouTube",
+                        text = "Impor Playlist",
                         style = MaterialTheme.typography.titleLarge,
                         color = glass.textPrimary,
                         fontWeight = FontWeight.Bold
@@ -1064,7 +1064,7 @@ fun MusicPlayerBottomSheet(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = "Masukkan URL atau ID playlist YouTube / YouTube Music. Semua lagu akan diambil dan disimpan ke playlist lokal Anda.",
+                        text = "Masukkan URL playlist dari YouTube, YouTube Music, atau SoundCloud. Lagu-lagu akan disimpan ke playlist lokal Anda.",
                         style = MaterialTheme.typography.bodySmall,
                         color = glass.textSecondary
                     )
@@ -1077,16 +1077,16 @@ fun MusicPlayerBottomSheet(
                             isImportSuccess = false
                         },
                         placeholder = {
-                            Text("https://music.youtube.com/playlist?list=...", color = glass.textMuted, fontSize = 12.sp)
+                            Text("Link playlist YouTube atau SoundCloud...", color = glass.textMuted, fontSize = 12.sp)
                         },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = YouTubeBrand,
+                            focusedBorderColor = glass.primary,
                             unfocusedBorderColor = glass.glassBorderStart,
                             focusedTextColor = glass.textPrimary,
                             unfocusedTextColor = glass.textPrimary,
-                            cursorColor = YouTubeBrand
+                            cursorColor = glass.primary
                         ),
                         shape = RoundedCornerShape(12.dp),
                         trailingIcon = {
@@ -1118,10 +1118,24 @@ fun MusicPlayerBottomSheet(
                                 importFeedbackMessage = null
                                 isImportSuccess = false
                             },
-                            label = { Text("Pop Hits 100 Lagu", fontSize = 11.sp) },
+                            label = { Text("YT Pop Hits", fontSize = 11.sp) },
                             colors = AssistChipDefaults.assistChipColors(
                                 containerColor = glass.glassElevatedTop,
-                                labelColor = glass.primary
+                                labelColor = YouTubeBrand
+                            ),
+                            border = null,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        AssistChip(
+                            onClick = {
+                                importUrlInput = "https://soundcloud.com/user-165315818/sets/running-music-180-190-bpm-fast"
+                                importFeedbackMessage = null
+                                isImportSuccess = false
+                            },
+                            label = { Text("SC Running 180BPM", fontSize = 11.sp) },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = glass.glassElevatedTop,
+                                labelColor = SoundCloudBrand
                             ),
                             border = null,
                             shape = RoundedCornerShape(8.dp)

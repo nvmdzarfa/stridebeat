@@ -149,10 +149,25 @@ class MusicRepositoryImpl @Inject constructor(
                     clearPlaybackNotice()
                 }
                 is StreamResult.Unavailable -> {
-                    _playbackNotice.value = streamResult.reason
-                    _unavailableExternalUrl.value = streamResult.externalUri
-                    _isPlaying.value = false
-                    return
+                    // Fallback otomatis transparan ke SoundCloud audio resolver
+                    val query = "${playableTrack.title} ${playableTrack.artist}"
+                    val scCandidates = OnlineMusicSearchEngine.searchTracks(query)
+                    val bestMatch = TrackMatchingEngine.findBestMatch(playableTrack, scCandidates)
+
+                    if (bestMatch != null && !bestMatch.audioUrl.isNullOrBlank()) {
+                        playableTrack = playableTrack.copy(
+                            audioUrl = bestMatch.audioUrl,
+                            platformIds = playableTrack.platformIds + (MusicSource.SOUNDCLOUD to (bestMatch.platformIds[MusicSource.SOUNDCLOUD] ?: bestMatch.id))
+                        )
+                        _currentTrack.value = playableTrack
+                        coordinator.setCurrentTrackOnly(playableTrack)
+                        clearPlaybackNotice()
+                    } else {
+                        _playbackNotice.value = streamResult.reason
+                        _unavailableExternalUrl.value = streamResult.externalUri
+                        _isPlaying.value = false
+                        return
+                    }
                 }
             }
         }
@@ -180,25 +195,13 @@ class MusicRepositoryImpl @Inject constructor(
         val nextIndex = if (currentIndex != -1) (currentIndex + 1) % currentQueue.size else 0
         var candidate = currentQueue[nextIndex]
 
-        // Jika di YouTube Music, pastikan track playable (lewati jika terhalang cipher / 403)
+        // Jika di YouTube Music dan audioUrl belum ada, coba resolusi cepat
         if (_activeSource.value == MusicSource.YOUTUBE_MUSIC && candidate.audioUrl.isNullOrBlank()) {
-            var found = false
-            for (step in 0 until currentQueue.size) {
-                val idx = (nextIndex + step) % currentQueue.size
-                val t = currentQueue[idx]
-                val vid = t.platformIds[MusicSource.YOUTUBE_MUSIC] ?: t.id.removePrefix("ytm_")
-                val stream = youTubeMusicClient.resolveAudioStreamUrl(vid)
-                if (stream is StreamResult.Playable) {
-                    candidate = t.copy(audioUrl = stream.audioUrl)
-                    found = true
-                    clearPlaybackNotice()
-                    break
-                }
-            }
-            if (!found) {
-                _playbackNotice.value = "Lagu di antrean tidak tersedia di YouTube Music"
-                _unavailableExternalUrl.value = "https://music.youtube.com/"
-                return
+            val vid = candidate.platformIds[MusicSource.YOUTUBE_MUSIC] ?: candidate.id.removePrefix("ytm_")
+            val stream = youTubeMusicClient.resolveAudioStreamUrl(vid)
+            if (stream is StreamResult.Playable) {
+                candidate = candidate.copy(audioUrl = stream.audioUrl)
+                clearPlaybackNotice()
             }
         }
 
@@ -378,7 +381,13 @@ class MusicRepositoryImpl @Inject constructor(
     }
 
     override suspend fun importYouTubePlaylist(playlistIdOrUrl: String): Result<WorkoutPlaylist> {
-        val fetchResult = youTubeMusicClient.fetchPlaylist(playlistIdOrUrl)
+        val trimmed = playlistIdOrUrl.trim()
+        val fetchResult = if (trimmed.contains("soundcloud.com", ignoreCase = true)) {
+            OnlineMusicSearchEngine.fetchSoundCloudPlaylist(trimmed)
+        } else {
+            youTubeMusicClient.fetchPlaylist(trimmed)
+        }
+
         if (fetchResult.isSuccess) {
             val playlist = fetchResult.getOrThrow()
             playlistStorage.savePlaylist(playlist)

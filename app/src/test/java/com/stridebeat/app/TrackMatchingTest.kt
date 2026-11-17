@@ -160,4 +160,33 @@ class TrackMatchingTest {
         assertTrue(TrackMatchingEngine.hasPlatformSupport(track, MusicSource.SOUNDCLOUD))
         assertFalse(TrackMatchingEngine.hasPlatformSupport(track, MusicSource.YOUTUBE_MUSIC))
     }
+
+    @Test
+    fun testKoreanAndUnicodeMatching() {
+        val ytTrack = Track(
+            id = "yt_1",
+            title = "WA-R-R",
+            artist = "Colde",
+            durationMs = 210000L
+        )
+
+        val scCandidates = listOf(
+            Track(
+                id = "sc_1",
+                title = "[원곡] 콜드 (Colde)- 와르르 (WA-R-R)",
+                artist = "콜드",
+                durationMs = 211000L
+            ),
+            Track(
+                id = "sc_2",
+                title = "Different Song",
+                artist = "Someone Else",
+                durationMs = 210000L
+            )
+        )
+
+        val matched = TrackMatchingEngine.findBestMatch(ytTrack, scCandidates)
+        assertNotNull(matched)
+        assertEquals("sc_1", matched?.id)
+    }
 }

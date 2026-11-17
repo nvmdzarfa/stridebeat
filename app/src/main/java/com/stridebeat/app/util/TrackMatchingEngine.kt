@@ -56,9 +56,27 @@ object TrackMatchingEngine {
         }
 
         // 2. Fallback: Title + Artist + Duration (±2s)
-        return candidates.firstOrNull { candidate ->
+        val strictMatch = candidates.firstOrNull { candidate ->
             isMatchingTrack(target, candidate)
         }
+        if (strictMatch != null) return strictMatch
+
+        // 3. Fallback toleran jika platform lain (SoundCloud) memiliki durasi intro/outro berbeda
+        val targetTitleNorm = normalizeString(target.title)
+        val targetArtistNorm = normalizeString(target.artist)
+        return candidates.firstOrNull { candidate ->
+            val candTitleNorm = normalizeString(candidate.title)
+            val candArtistNorm = normalizeString(candidate.artist)
+
+            val titleMatched = (targetTitleNorm.isNotBlank() && candTitleNorm.contains(targetTitleNorm)) ||
+                    (candTitleNorm.isNotBlank() && targetTitleNorm.contains(candTitleNorm))
+
+            val artistMatched = (targetArtistNorm.isNotBlank() && candArtistNorm.contains(targetArtistNorm)) ||
+                    (candArtistNorm.isNotBlank() && targetArtistNorm.contains(candArtistNorm)) ||
+                    candTitleNorm.contains(targetArtistNorm) // Artis seringkali tercantum di judul di SoundCloud
+
+            titleMatched && artistMatched
+        } ?: candidates.firstOrNull()
     }
 
     /**
@@ -84,7 +102,8 @@ object TrackMatchingEngine {
     private fun normalizeString(input: String): String {
         return input.lowercase()
             .replace(Regex("\\[.*?\\]|\\(.*?\\)"), "") // Hapus teks dalam tanda kurung seperti (Remastered)
-            .replace(Regex("[^a-zA-Z0-9]"), "")       // Hanya sisakan alfanumerik
+            .replace(Regex("[^a-zA-Z0-9\\uAC00-\\uD7A3\\u3040-\\u30FF\\u4E00-\\u9FFF]"), " ") // Sisakan alfanumerik & CJK / Hangul
+            .replace(Regex("\\s+"), " ")
             .trim()
     }
 }
