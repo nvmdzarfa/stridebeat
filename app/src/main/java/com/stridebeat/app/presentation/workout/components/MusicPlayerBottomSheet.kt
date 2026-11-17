@@ -837,7 +837,7 @@ fun MusicPlayerBottomSheet(
                                                     maxLines = 1
                                                 )
                                                 Text(
-                                                    text = "${playlist.tracks.size} Lagu • ${playlist.source.displayName}",
+                                                    text = "${playlist.tracks.size} Lagu • ${playlist.source?.displayName ?: "Lokal"}",
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = glass.textSecondary,
                                                     maxLines = 1
