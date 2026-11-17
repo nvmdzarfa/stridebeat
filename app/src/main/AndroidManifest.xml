@@ -60,15 +60,6 @@
                     android:scheme="stridebeat" />
             </intent-filter>
 
-            <!-- OAuth Redirect URI Filter (YouTube Music - M6) -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:host="ytmusic-callback"
-                    android:scheme="stridebeat" />
-            </intent-filter>
         </activity>
 
 

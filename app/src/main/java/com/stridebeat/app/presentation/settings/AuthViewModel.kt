@@ -55,22 +55,6 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun startYouTubeMusicLogin(context: Context) {
-        val authUrl = authRepository.getYouTubeMusicAuthUrl()
-        if (authUrl != null) {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(authUrl)).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            context.startActivity(intent)
-        }
-    }
-
-    fun disconnectYouTubeMusic() {
-        viewModelScope.launch {
-            authRepository.disconnectYouTubeMusic()
-        }
-    }
-
     fun setYouTubeMusicFeatureFlag(enabled: Boolean) {
         authRepository.refreshYouTubeMusicFeatureFlag(enabled)
     }
@@ -95,13 +79,6 @@ class AuthViewModel @Inject constructor(
                     }
                 } else {
                     authRepository.handleStravaAuthCancelledOrDenied(error)
-                }
-            }
-            "ytmusic-callback" -> {
-                if (code != null) {
-                    viewModelScope.launch {
-                        authRepository.handleYouTubeMusicCallback(code)
-                    }
                 }
             }
         }

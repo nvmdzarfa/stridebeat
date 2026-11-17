@@ -16,8 +16,12 @@ import javax.inject.Singleton
 
 /**
  * Manajer otentikasi opsional YouTube Music berbasis Google OAuth 2.0 PKCE.
- * Sesuai PRD §6.3:
- * Tidak pernah meminta form password Google. Token disimpan di SecureTokenStorage AES-256 GCM.
+ *
+ * CATATAN ARSITEKTUR & KEPUTUSAN PEMILIK (M6 Celah 1 — Opsi A):
+ * Alur login Google OAuth dinonaktifkan dari UI (SettingsScreen & AuthViewModel) karena:
+ * 1. InnerTube API web-client (/search & /player) tidak mengonsumsi token Bearer Google Data API v3 tanpa cookie sesi browser.
+ * 2. YouTube Music di StrideBeat sepenuhnya difungsikan dalam "Mode Pencarian Publik (Beta)" zero-config tanpa meminta kredensial akun pengguna.
+ * 3. Kelas ini dipertahankan secara internal tanpa tombol semu/mati suri di UI, dan tidak pernah meminta form password Google.
  */
 @Singleton
 class YouTubeMusicAuthManager @Inject constructor(

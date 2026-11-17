@@ -11,9 +11,9 @@
 
 ## 📌 Status Pengembangan
 
+- **Versi Terkini:** `v0.2.0` (`versionCode = 16`)
 - **Platform:** Android Native (100% Kotlin + Jetpack Compose Material 3)
-- **Package Name:** `com.stridebeat.app` (dibangun pada v0.2.0)
-
+- **Package Name:** `com.stridebeat.app`
 - **Min SDK:** 26 (Android 8.0 Oreo) | **Target SDK:** 35 (Android 15)
 - **Arsitektur:** Clean Architecture + MVVM + Unidirectional Data Flow (StateFlow) + Hilt DI + WorkManager
 - **Status Milestone:**
@@ -23,10 +23,9 @@
   - ✅ **M3 — Musik & Playback:** Selesai (SoundCloud API full-track >45 detik + Media3 ExoPlayer HLS/MP3, Media Notification & Lock Screen dengan cover album, pencatatan otomatis lagu per sesi).
   - ✅ **M4 — Recap, Riwayat & Export GPX:** Selesai (Room local SQLite database `stridebeat.db`, ekspor rute universal GPX 1.1, rekap metrik + lagu, share teks, cek update GitHub Releases).
   - ✅ **M5 — Strava Native (Phase 2):** Selesai (Strava OAuth 2.0 + PKCE + auto-refresh token AES-256 GCM, Upload ke Strava via GPX `POST /uploads` & fallback `POST /activities`, WorkManager offline queue + notifikasi, auto-upload opsional default MATI, impor 30 aktivitas Strava terbaru dengan deduplikasi).
-  - ✅ **M6 — YouTube Music (Beta) + Music Switcher Utuh:** Selesai (Switcher `SoundCloud ↔ YouTube Music` tanpa me-reset tracking olahraga, InnerTube search & on-demand player stream resolution, toleransi durasi pencocokan ±2 detik, 3 playlist workout netral, feature flag kill-switch di Pengaturan & DataStore, Spotify dihapus dari UI aktif sesuai keputusan pemilik).
+  - ✅ **M6 — YouTube Music (Beta) + Music Switcher Utuh:** Selesai Implementasi & CI (Multi-source switcher `SoundCloud ↔ YouTube Music`, InnerTube API `/search` & `/player`, toleransi durasi pencocokan ±2 detik, 3 playlist workout netral, feature flag kill-switch di Pengaturan, Spotify disembunyikan dari UI aktif per keputusan pemilik, YouTube Music murni Mode Pencarian Publik Beta).
   - ⏳ **M7 — Musik Mengikuti Pace + Audio Cue:** Belum dikerjakan.
   - ⏳ **M8 — Statistik Lanjutan + Share Gambar:** Belum dikerjakan.
-
 
 ---
 
@@ -39,11 +38,14 @@
    STRAVA_CLIENT_ID=<isi_client_id_strava>
    STRAVA_CLIENT_SECRET=<isi_client_secret_strava>
 
-   # Spotify Developer API
-   SPOTIFY_CLIENT_ID=<isi_client_id_spotify>
+   # Spotify Developer API (Opsional - UI dinonaktifkan per keputusan pemilik)
+   SPOTIFY_CLIENT_ID=11f00fd3daf04d1a9c6b38594a26005a
    SPOTIFY_REDIRECT_URI=stridebeat://spotify-callback
+
+   # SoundCloud Client ID (Opsional - ada fallback default)
+   SOUNDCLOUD_CLIENT_ID=
    ```
-   > Jika `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` belum diisi, aplikasi tetap berjalan normal dan menampilkan state **"Belum terhubung (Client ID belum dikonfigurasi)"** di Pengaturan.
+   > Jika `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` belum diisi, aplikasi tetap berjalan normal dan menampilkan status **"Belum terhubung"** di Pengaturan.
 3. Letakkan `google-services.json` di folder `app/` untuk mengaktifkan Firebase Auth & Cloud Firestore (jangan commit ke Git).
 4. **Build & Unit Test:**
    ```bash
@@ -51,66 +53,56 @@
    ./gradlew assembleDebug
    ./gradlew assembleRelease
    ```
-   > Release build tetap memakai keystore permanen yang sudah dikonfigurasi agar APK baru dapat ditimpa langsung di atas `v0.0.12` tanpa uninstall.
+   > Release build memakai keystore permanen yang sudah terkonfigurasi pada CI agar APK baru (`v0.2.0`) dapat diinstal menimpa versi sebelumnya tanpa uninstall.
 
 ---
 
-## 🟠 Arsitektur Strava Native (M5)
+## 🔴 Arsitektur YouTube Music Beta & Music Switcher (M6)
 
-Detail teknis lengkap tersedia di [`docs/STRAVA.md`](docs/STRAVA.md):
+Detail teknis lengkap tersedia di [`docs/YOUTUBE_MUSIC.md`](docs/YOUTUBE_MUSIC.md):
 
-1. **OAuth 2.0 + PKCE & Token Refresh (`StravaAuthManager`):**
-   * Scope minimal: `read,activity:read_all,activity:write`.
-   * Redirect deep link `stridebeat://strava-callback` di `AndroidManifest.xml`.
-   * Token tersimpan terenkripsi AES-256 GCM di `SecureTokenStorage` dan otomatis di-refresh sebelum expired. Logout Strava hanya menghapus token Strava tanpa memutus Google/Spotify.
-2. **Upload Aktivitas & WorkManager (`StravaApiClient`, `StravaRepository`, `StravaUploadWorker`):**
-   * Jalur utama upload rute GPS: `POST /api/v3/uploads` (`data_type=gpx`) agar peta rute, jarak, pace, dan daftar lagu (`🎵 Diputar di StrideBeat:` maks 10 lagu + `…dan X lagu lainnya`) ikut terunggah; fallback ke `POST /api/v3/activities` bila titik GPS `< 2`.
-   * Preview & edit nama + deskripsi selalu muncul sebelum upload manual.
-   * Auto-upload default **MATI** di DataStore (`StravaPreferences`), dan hanya berjalan jika durasi `≥ 1 menit` dan jarak `> 0 m`.
-   * Saat offline, upload masuk antrean `WorkManager` dengan status **`Menunggu`** dan otomatis terkirim saat koneksi kembali (disertai notifikasi hasil via `StravaNotificationHelper`).
-3. **Impor Riwayat & Deduplikasi:**
-   * `GET /api/v3/athlete/activities?per_page=30` mengimpor maksimal 30 aktivitas terbaru beserta `map.summary_polyline` yang didekode ke `List<LatLng>`, diberi badge **"Dari Strava"**, dan dideduplikasi via `stravaActivityId` atau kecocokan waktu/jarak/durasi.
-   * Room Database naik dari versi `1` ke `2` dengan `MIGRATION_1_2` sehingga seluruh riwayat `v0.0.12` tetap aman saat update APK.
-
----
-
-## 🧪 Cara Pengujian Manual & Otomatis (Milestone M5)
-
-1. **Uji Pengaturan & State Akun Strava:**
-   * Buka tab **Pengaturan** → bagian **AKUN TERHUBUNG (STRAVA)**.
-   * Pastikan jika `STRAVA_CLIENT_ID` belum diisi, tampil **"Belum terhubung (Client ID belum dikonfigurasi)"** (tidak crash).
-   * Jika sudah dikonfigurasi: tap **Hubungkan**, login Strava, pastikan kembali ke StrideBeat dengan status **"Terhubung: <Nama Atlet>"**.
-   * Coba tap **Putuskan** pada kartu Strava → pastikan akun Google & Spotify tetap terhubung.
-2. **Uji Auto-upload & Preview Upload di Recap:**
-   * Pastikan toggle **Auto-upload ke Strava** default **MATI**.
-   * Lakukan sesi workout singkat (< 1 menit) dengan Auto-upload **ON** → di Recap muncul alasan dilewati dan tidak mengunggah sesi kosong ke Strava.
-   * Pada sesi valid → tap **Upload ke Strava**, periksa dialog preview nama (`StrideBeat Run — ...`) dan deskripsi (jarak/durasi/pace + daftar lagu max 10).
-   * Matikan internet lalu tap **Kirim ke Strava** → status di Recap & Riwayat menjadi **`Menunggu`**. Nyalakan internet kembali → WorkManager otomatis mengunggah dan memunculkan notifikasi selesai + badge **`Strava ✓`** (ketuk untuk membuka link Strava).
-3. **Uji Impor Riwayat Strava:**
-   * Di **Riwayat** (atau **Pengaturan**), tap **Impor Strava**.
-   * Pastikan maksimal 30 aktivitas muncul berlabel **"Dari Strava"** dengan rute tergambar; ketuk **Impor Strava** kedua kalinya → tidak terjadi duplikasi.
-4. **Uji Otomatis (Unit Test & Maestro):**
-   ```bash
-   ./gradlew testDebugUnitTest
-   maestro test maestro/m5_strava_flow.yaml
-   ```
+1. **Multi-Source Switcher (`SoundCloud ↔ YouTube Music`):**
+   * Berada di bagian atas `MusicPlayerBottomSheet`.
+   * Berpindah sumber di tengah latihan **tidak pernah mereset** timer, jarak, kecepatan (pace), atau polyline rute GPS di `TrackingService`.
+   * Pencocokan lagu lintas platform via `TrackMatchingEngine`: ISRC match atau normalisasi judul + artis dengan batas toleransi durasi ketat ±2 detik (`2000L` ms).
+2. **InnerTube API Klien Ringan (`YouTubeMusicClient`):**
+   * Katalog lagu dicari via `POST https://music.youtube.com/youtubei/v1/search` (`clientName: WEB_REMIX`).
+   * Resolusi streaming dilakukan on-demand (*just-in-time*) saat lagu hendak diputar via `POST https://music.youtube.com/youtubei/v1/player` (`ANDROID_MUSIC` & fallback `IOS`).
+   * Format audio langsung yang didapat diputar secara native melalui Media3 ExoPlayer.
+3. **Penanganan Format Cipher / 403 & Tombol Pemulihan:**
+   * Aplikasi tidak membobol DRM dan tidak mem-bypass YouTube Premium.
+   * Lagu yang format audionya hanya tersedia melalui `signatureCipher` atau HTTP 403 dikembalikan sebagai `StreamResult.Unavailable` secara aman. UI menampilkan banner jujur: *"Audio YouTube Music tidak tersedia langsung untuk lagu ini"* disertai tombol cepat **"Putar di SoundCloud"** dan **"Buka di YouTube Music"**.
+4. **Keputusan Celah 1 (Nasib Login YTM — Opsi A):**
+   * Alur login Google OAuth YouTube Music dihapus dari UI Pengaturan dan `AuthViewModel` agar tidak ada tombol semu/mati suri, karena InnerTube API pemutaran audio tidak menerima token Bearer Google Data API v3 tanpa cookie sesi browser. YouTube Music murni berjalan dalam **Mode Pencarian Publik (Beta)**.
+5. **Keputusan Celah 2 (Library / Liked via Cookie):**
+   * Akses library/liked lewat WebView capture cookie dan `SAPISIDHASH` (pola BitChord) **sengaja dilewati** untuk menjaga privasi pengguna, mencegah risiko pembatasan akun Google, dan menghindari copy-paste kode GPLv3.
 
 ---
 
-## ✅ Checklist Regression Test v0.0.12 (Wajib Lolos M5)
+## 🧪 Laporan Hasil Unit Test & Verifikasi Otomatis
 
-- [x] **Unit Test Build & M5 Logic (`DomainModelTest`, `GpxExporterTest`, `StravaIntegrationTest`):** Lolos pada CI `testDebugUnitTest`.
-- [ ] Login Google (Firebase Auth) + sync Firestore + mode offline Room tetap jalan *(verifikasi manual di perangkat fisik pasca rilis APK)*.
-- [ ] Tracking 10 menit: GPS polyline live, jarak/durasi/pace/kalori benar, auto-pause jalan, peringatan GPS terputus muncul saat GPS hilang.
-- [ ] Musik SoundCloud: search full-track >45 detik, playback HLS/MP3 via ExoPlayer, skip/seekbar, Media Notification & Lock Screen dengan cover.
-- [ ] Spotify OAuth PKCE + token terenkripsi tetap jalan.
-- [ ] Recap & Riwayat: rute + statistik + lagu tersimpan, share teks jalan, ekspor GPX jalan.
-- [ ] Beranda 7 hari + shortcut sesi terakhir tetap benar.
-- [ ] Cek update via GitHub Releases (popup + notifikasi) tetap jalan.
-- [ ] Tema Dark / Light / Ikuti Sistem + bottom bar instan tetap jalan.
+Seluruh 34 unit test dijalankan dan lolos 100% pada CI (`testDebugUnitTest`):
+
+| Test Suite | File Uji | Jumlah Kasus | Status | Cakupan |
+|---|---|---|---|---|
+| **Domain Model** | `DomainModelTest.kt` | 4 test | ✅ **Lolos** | Model data workout, format durasi/pace, enum `MusicSource` |
+| **GPX Exporter** | `GpxExporterTest.kt` | 3 test | ✅ **Lolos** | Struktur XML GPX 1.1, titik rute, track point timestamps |
+| **Strava Integration** | `StravaIntegrationTest.kt` | 8 test | ✅ **Lolos** | OAuth PKCE, GPX payload builder, deduplikasi 30 aktivitas |
+| **Track Matching** | `TrackMatchingTest.kt` | 7 test | ✅ **Lolos** | ISRC matching, normalisasi judul/artis, toleransi durasi ketat ±2 detik |
+| **Music Switcher** | `MusicSwitcherTest.kt` | 7 test | ✅ **Lolos** | State switcher, isolasi tracking, playlist skip loop guard, remapping `sc_*` |
+| **YouTube Music Parser** | `YouTubeMusicParsingTest.kt` | 5 test | ✅ **Lolos** | Parsing response JSON search & player InnerTube, direct audio url, cipher handling |
+| **Total** | | **34 test** | ✅ **34 Lolos (100%)** | |
 
 ---
 
-## 🔑 Yang Masih Dibutuhkan dari Pemilik (M5 Live Strava)
+## 📱 Checklist Verifikasi Live di HP (Dilakukan Pemilik / Geiza)
 
-- **`STRAVA_CLIENT_ID` & `STRAVA_CLIENT_SECRET`:** Buat / ambil dari [Strava API Settings](https://www.strava.com/settings/api) dengan Authorization Callback Domain `strava-callback`, lalu simpan ke `local.properties` dan GitHub Secrets agar fitur OAuth, Upload, dan Impor Strava dapat login secara live (tanpa key ini, UI otomatis menampilkan placeholder `Belum terhubung`).
+*Catatan: Milestone M6 tidak diklaim selesai sebelum verifikasi langsung di HP fisik berhasil dilakukan.*
+
+- [ ] **1. Instalasi APK v0.2.0:** Unduh file APK rilis dari GitHub Releases dan pasang langsung di HP.
+- [ ] **2. Aktivasi YouTube Music:** Buka **Pengaturan** → **AKUN MUSIK** → Pastikan kartu **YouTube Music** memiliki badge **Beta / Tidak Resmi** dan status **Mode Pencarian Publik (Beta)**. Nyalakan toggle ON.
+- [ ] **3. Uji Pemutaran YouTube Music:** Cari lagu di pencarian YouTube Music → putar lagu → pastikan judul, artis, cover album, dan audio ExoPlayer berbunyi. Cek seekbar, tombol skip, media notification di status bar, dan lock screen controls.
+- [ ] **4. Uji Sesi Workout + Music Switcher:** Mulai latihan (lari/jalan 10 menit) sambil memutar lagu YouTube Music → buka bottom sheet musik dan ganti sumber ke **SoundCloud** di tengah sesi → pastikan timer, jarak, pace, dan rute polyline GPS **tidak reset**. Selesaikan sesi dan pastikan riwayat/Recap mencatat sumber lagu dengan benar.
+- [ ] **5. Uji Lagu SignatureCipher / Unavailable:** Cari lagu yang kemungkinan cipher-only → pastikan muncul pesan ramah *"Audio YouTube Music tidak tersedia langsung"* + tombol *"Putar di SoundCloud"* / *"Buka di YouTube Music"*, tanpa force close/crash.
+- [ ] **6. Uji Kill-Switch:** Matikan toggle YouTube Music di Pengaturan → pastikan tombol YouTube Music di player hilang dan aplikasi beralih mulus ke SoundCloud.
+- [ ] **7. Uji Regresi v0.0.12 & M5:** Login Firebase Auth, GPS tracking auto-pause, ekspor rute GPX, dan koneksi Strava tetap berfungsi normal.

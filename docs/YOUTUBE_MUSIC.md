@@ -1,9 +1,13 @@
 # Dokumentasi Integrasi YouTube Music — StrideBeat
 
+**Versi:** `0.2.0` (`versionCode 16`)  
 **Status:** Eksperimental / Beta / Tidak Resmi (Milestone M6)  
 **Feature Flag:** `MusicPreferences.youtubeMusicEnabled` & `YouTubeMusicConfig.isYouTubeMusicEnabled`  
 **Sumber Musik Utama:** SoundCloud (Stabil & Out-of-the-Box)  
-**Keputusan Pemilik:** Spotify dihapus dari UI aktif karena akun pemilik non-Premium; SoundCloud dan YouTube Music (Beta) menjadi dua sumber musik aktif di switcher.
+**Keputusan Pemilik:**
+- **Spotify:** Dihapus dari UI aktif karena akun pemilik non-Premium; SoundCloud dan YouTube Music (Beta) menjadi dua sumber musik aktif di switcher.
+- **Login YouTube Music (Celah 1 — Opsi A):** Tombol login Google OAuth dihapus dari UI aktif dan AuthViewModel. Aplikasi murni berjalan dalam **Mode Pencarian Publik (Beta)** tanpa tombol login semu/mati suri.
+- **Library/Liked YouTube Music (Celah 2):** Dilewati (cukup pencarian publik, tanpa injeksi cookie/WebView capture demi menjaga privasi dan keamanan akun Google pengguna).
 
 ---
 
@@ -21,14 +25,20 @@ YouTube Music **tidak memiliki Web API publik resmi** untuk konsumsi library pen
 
 ---
 
-## 2. Batasan Keamanan & Privasi
+## 2. Batasan Keamanan, Privasi & Keputusan Arsitektur
 
-1. **Tanpa Form Password Google:**
-   Aplikasi tidak pernah meminta email atau password Google pengguna. Otorisasi opsional murni menggunakan Google OAuth 2.0 PKCE (`stridebeat://ytmusic-callback`).
-2. **Penyimpanan Terenkripsi:**
-   Token OAuth Google disimpan di `SecureTokenStorage` menggunakan AndroidX Security `EncryptedSharedPreferences` dengan skema `AES-256 GCM`.
-3. **Mode Pencarian Publik (Bawaan):**
-   Jika `YOUTUBE_MUSIC_OAUTH_CLIENT_ID` kosong di `local.properties`, fitur pencarian dan pemutaran tetap berfungsi penuh dalam status *"Mode Pencarian Publik (Beta)"* tanpa login.
+1. **Celah 1 — Nasib Login YouTube Music (Diputuskan: Opsi A):**
+   - **Keputusan:** Alur login Google OAuth PKCE YouTube Music dihapus dari antarmuka Pengaturan dan `AuthViewModel`.
+   - **Alasan:** Token Google OAuth 2.0 PKCE yang diterbitkan Google Cloud berlingkup `youtube.readonly` ditujukan untuk Google Data API v3 (`youtube.googleapis.com`), sedangkan antarmuka pemutaran InnerTube (`music.youtube.com/youtubei/v1`) memerlukan sesi cookie web browser Google. Menghubungkan akun Google tanpa mengonsumsi token tersebut di klien InnerTube adalah login "mati suri". Dengan Opsi A, UI bersih, transparan, dan beroperasi murni dalam **Mode Pencarian Publik (Beta)** tanpa perlu login atau kredensial apa pun.
+   - Helper internal `YouTubeMusicAuthManager` tetap ada di repository data jika di masa depan Google merilis API pemutar resmi.
+2. **Celah 2 — Akses Library / Liked Playlist Pribadi (Diputuskan: Cukup Search Publik):**
+   - **Keputusan:** Akses library/liked via WebView cookie capture dan `SAPISIDHASH` (pola BitChord) **sengaja tidak dikerjakan**.
+   - **Alasan:** 
+     1. Menghindari risiko keamanan dan pembatasan akun Google pengguna akibat scraping session cookie.
+     2. Mencegah pelanggaran lisensi copy-paste (kode BitChord berlisensi GPLv3).
+     3. Mode pencarian publik dan playlist workout netral sudah mencukupi kebutuhan olahraga outdoor di Milestone M6.
+3. **Tanpa Form Password Google & Tanpa DRM Bypass:**
+   Aplikasi tidak pernah meminta email atau password Google pengguna, tidak membobol enkripsi DRM, tidak mem-bypass YouTube Premium, tidak memblokir iklan dalam app, dan tidak mencetak token ke Logcat.
 
 ---
 
@@ -61,12 +71,13 @@ Jika layanan YouTube Music mengalami gangguan eksternal atau skema InnerTube ber
 
 ---
 
-## 5. Checklist Verifikasi Manual & Regresi
+## 5. Checklist Verifikasi Live di HP (Dilakukan Pemilik)
 
-- [x] Pencarian musik di SoundCloud menghasilkan full track dan audio jernih.
-- [x] Pencarian musik di YouTube Music (Beta) menampilkan hasil lagu InnerTube.
-- [x] Berpindah sumber di pemutar mini tidak mengganggu timer lari `WAKTU BERJALAN`.
-- [x] Track legacy `sc_*` yang tersimpan di DB Room v0.1.2 ter-remap otomatis menjadi `MusicSource.SOUNDCLOUD`.
-- [x] Mematikan toggle YouTube Music di Pengaturan langsung menyembunyikan opsi YouTube Music di pemutar.
-- [x] Login Google OAuth (v0.0.12) tetap aman dan tidak terpengaruh oleh integrasi musik.
-- [x] Integrasi Strava (v0.0.13) tetap berfungsi normal untuk auto-upload dan ekspor GPX.
+Checklist ini dilakukan secara langsung di perangkat fisik Android oleh pemilik sebelum mengklaim M6 sepenuhnya selesai:
+- [ ] **Build debug/release:** Unduh / instal APK `v0.2.0` di HP.
+- [ ] **Nyalakan YouTube Music:** Pengaturan → AKUN MUSIK → Toggle ON, label `Beta / Tidak Resmi` terlihat.
+- [ ] **Cari lagu YTM → Putar:** Cek judul, artis, durasi, cover muncul; audio berbunyi; seekbar/skip jalan; notifikasi media & lock screen tampil dengan kontrol playback.
+- [ ] **Workout + Switcher:** Mulai workout (lari/jalan 10 menit) sambil lagu YTM berputar → ganti sumber ke SoundCloud di tengah sesi → pastikan timer, jarak, dan rute tidak ter-reset, dan lagu tercatat dengan sumber yang benar di Recap.
+- [ ] **Cek Lagu Cipher/Unavailable:** Cari lagu yang tidak dapat diputar langsung → pastikan muncul pesan ramah + tombol "Putar di SoundCloud" / "Buka di YouTube Music", bukan crash.
+- [ ] **Matikan Fitur (Kill-switch):** Toggle OFF di Pengaturan → app tetap berjalan mulus dengan SoundCloud saja.
+- [ ] **Regresi Fitur v0.0.12 & M5:** Login Google Firebase, GPS tracking + auto-pause, riwayat & ekspor GPX, koneksi & upload Strava.

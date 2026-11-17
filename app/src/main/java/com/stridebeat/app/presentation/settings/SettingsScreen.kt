@@ -34,7 +34,6 @@ import coil.compose.AsyncImage
 import com.stridebeat.app.BuildConfig
 import com.stridebeat.app.data.local.AppThemeMode
 import com.stridebeat.app.domain.model.StravaAuthState
-import com.stridebeat.app.domain.model.YouTubeMusicAuthState
 import com.stridebeat.app.presentation.profile.AccountViewModel
 import com.stridebeat.app.presentation.strava.StravaViewModel
 import com.stridebeat.app.presentation.theme.*
@@ -53,8 +52,6 @@ fun SettingsScreen(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     val glass = StrideBeatGlass.colors
-
-    val youTubeMusicState by authViewModel.youTubeMusicState.collectAsStateWithLifecycle()
     val youtubeMusicEnabled by musicViewModel.youtubeMusicEnabled.collectAsStateWithLifecycle()
     val stravaState by authViewModel.stravaState.collectAsStateWithLifecycle()
     val autoUploadStrava by stravaViewModel.autoUploadEnabled.collectAsStateWithLifecycle()
@@ -788,10 +785,7 @@ fun SettingsScreen(
             onEnabledChanged = { enabled ->
                 musicViewModel.setYouTubeMusicEnabled(enabled)
                 authViewModel.setYouTubeMusicFeatureFlag(enabled)
-            },
-            state = youTubeMusicState,
-            onConnect = { authViewModel.startYouTubeMusicLogin(context) },
-            onDisconnect = { authViewModel.disconnectYouTubeMusic() }
+            }
         )
 
 
@@ -935,10 +929,7 @@ fun SettingsScreen(
 @Composable
 private fun YouTubeMusicAccountCard(
     enabled: Boolean,
-    onEnabledChanged: (Boolean) -> Unit,
-    state: YouTubeMusicAuthState,
-    onConnect: () -> Unit,
-    onDisconnect: () -> Unit
+    onEnabledChanged: (Boolean) -> Unit
 ) {
     val glass = StrideBeatGlass.colors
     GlassCard(
@@ -979,12 +970,7 @@ private fun YouTubeMusicAccountCard(
 
                     Text(
                         text = if (enabled) {
-                            when (state) {
-                                is YouTubeMusicAuthState.Connected -> "Terhubung: ${state.userName}"
-                                is YouTubeMusicAuthState.Connecting -> "Menghubungkan ke Google..."
-                                is YouTubeMusicAuthState.Error -> "Gagal: ${state.message}"
-                                else -> "Mode Pencarian Publik (Beta) — Aktif tanpa login"
-                            }
+                            "Mode Pencarian Publik (Beta) — Aktif tanpa login"
                         } else {
                             "Nonaktif (pemutar hanya memakai SoundCloud)"
                         },
@@ -1004,33 +990,6 @@ private fun YouTubeMusicAccountCard(
                         uncheckedTrackColor = glass.trackBarInactive
                     )
                 )
-            }
-
-            if (enabled && BuildConfig.YOUTUBE_MUSIC_OAUTH_CLIENT_ID.isNotBlank()) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    if (state is YouTubeMusicAuthState.Connected) {
-                        OutlinedButton(
-                            onClick = onDisconnect,
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = StatusError),
-                            border = BorderStroke(1.dp, StatusError.copy(alpha = 0.5f))
-                        ) {
-                            Text("Putuskan Akun", style = MaterialTheme.typography.labelMedium)
-                        }
-                    } else {
-                        Button(
-                            onClick = onConnect,
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = YouTubeBrand, contentColor = Color.White)
-                        ) {
-                            Text("Hubungkan Akun Google", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
             }
         }
     }
