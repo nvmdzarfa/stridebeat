@@ -70,6 +70,7 @@ fun WorkoutScreen(
     val youtubeMusicEnabled by musicViewModel.youtubeMusicEnabled.collectAsStateWithLifecycle()
     val playbackNotice by musicViewModel.playbackNotice.collectAsStateWithLifecycle()
     val unavailableExternalUrl by musicViewModel.unavailableExternalUrl.collectAsStateWithLifecycle()
+    val isImportingPlaylist by musicViewModel.isImportingPlaylist.collectAsStateWithLifecycle()
 
     var selectedWorkoutType by remember { mutableStateOf(WorkoutType.RUN) }
     var showFinishDialog by remember { mutableStateOf(false) }
@@ -130,6 +131,9 @@ fun WorkoutScreen(
             onSearchOnline = { query -> musicViewModel.searchOnlineTracks(query) },
             onDismissNotice = { musicViewModel.clearPlaybackNotice() },
             onPlayOnSoundCloud = { musicViewModel.tryPlayCurrentTrackOnSoundCloud() },
+            isImportingPlaylist = isImportingPlaylist,
+            onImportPlaylist = { urlOrId, cb -> musicViewModel.importYouTubePlaylist(urlOrId, cb) },
+            onDeletePlaylist = { playlistId -> musicViewModel.deletePlaylist(playlistId) },
             onDismiss = { showMusicSheet = false }
         )
     }

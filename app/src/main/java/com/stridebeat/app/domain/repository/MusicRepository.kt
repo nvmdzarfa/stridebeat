@@ -42,4 +42,8 @@ interface MusicRepository {
     suspend fun clearPlaybackNotice()
     suspend fun setYouTubeMusicEnabled(enabled: Boolean)
     suspend fun tryPlayCurrentTrackOnSoundCloud()
+
+    // Impor & Manajemen Playlist Pengguna
+    suspend fun importYouTubePlaylist(playlistIdOrUrl: String): Result<WorkoutPlaylist>
+    suspend fun deletePlaylist(playlistId: String)
 }

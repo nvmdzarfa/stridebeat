@@ -2,6 +2,7 @@ package com.stridebeat.app.data.remote.youtubemusic
 
 import com.stridebeat.app.domain.model.MusicSource
 import com.stridebeat.app.domain.model.Track
+import com.stridebeat.app.domain.model.WorkoutPlaylist
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -67,6 +68,107 @@ class YouTubeMusicClient @Inject constructor() {
             } else {
                 Result.failure(Exception("YouTube Music search returned HTTP ${connection.responseCode}"))
             }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchPlaylist(playlistIdOrUrl: String): Result<WorkoutPlaylist> = withContext(Dispatchers.IO) {
+        val playlistId = extractPlaylistId(playlistIdOrUrl)
+            ?: return@withContext Result.failure(IllegalArgumentException("Link atau ID playlist YouTube tidak valid. Pastikan link berisi 'list=' atau ID playlist yang benar."))
+
+        // 1. Coba request ke endpoint YouTube Web InnerTube (WEB)
+        val browseId = if (playlistId.startsWith("VL")) playlistId else "VL$playlistId"
+        try {
+            val endpointWeb = URL("https://www.youtube.com/youtubei/v1/browse")
+            val connWeb = (endpointWeb.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 8000
+                readTimeout = 8000
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                setRequestProperty("Referer", "https://www.youtube.com/")
+            }
+
+            val requestBodyWeb = JSONObject().apply {
+                val context = JSONObject().apply {
+                    val client = JSONObject().apply {
+                        put("clientName", "WEB")
+                        put("clientVersion", "2.20240318.01.00")
+                        put("hl", "id")
+                        put("gl", "ID")
+                    }
+                    put("client", client)
+                }
+                put("context", context)
+                put("browseId", browseId)
+            }
+
+            OutputStreamWriter(connWeb.outputStream).use { writer ->
+                writer.write(requestBodyWeb.toString())
+                writer.flush()
+            }
+
+            if (connWeb.responseCode == 200) {
+                val responseText = connWeb.inputStream.bufferedReader().use { it.readText() }
+                val parsed = parsePlaylistBrowseResponse(responseText, playlistId)
+                if (parsed != null && parsed.tracks.isNotEmpty()) {
+                    return@withContext Result.success(parsed)
+                }
+                val alertMsg = extractAlertMessage(responseText)
+                if (alertMsg != null) {
+                    return@withContext Result.failure(Exception(alertMsg))
+                }
+            }
+        } catch (_: Exception) {
+            // Lanjut ke fallback endpoint
+        }
+
+        // 2. Fallback ke endpoint YouTube Music InnerTube (WEB_REMIX)
+        try {
+            val endpointMusic = URL("https://music.youtube.com/youtubei/v1/browse")
+            val connMusic = (endpointMusic.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 8000
+                readTimeout = 8000
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                setRequestProperty("Referer", "https://music.youtube.com/")
+            }
+
+            val requestBodyMusic = JSONObject().apply {
+                val context = JSONObject().apply {
+                    val client = JSONObject().apply {
+                        put("clientName", "WEB_REMIX")
+                        put("clientVersion", "1.20230628.01.00")
+                        put("hl", "id")
+                        put("gl", "ID")
+                    }
+                    put("client", client)
+                }
+                put("context", context)
+                put("browseId", browseId)
+            }
+
+            OutputStreamWriter(connMusic.outputStream).use { writer ->
+                writer.write(requestBodyMusic.toString())
+                writer.flush()
+            }
+
+            if (connMusic.responseCode == 200) {
+                val responseText = connMusic.inputStream.bufferedReader().use { it.readText() }
+                val parsed = parsePlaylistBrowseResponse(responseText, playlistId)
+                if (parsed != null && parsed.tracks.isNotEmpty()) {
+                    return@withContext Result.success(parsed)
+                }
+                val alertMsg = extractAlertMessage(responseText)
+                if (alertMsg != null) {
+                    return@withContext Result.failure(Exception(alertMsg))
+                }
+            }
+            Result.failure(Exception("Playlist tidak ditemukan atau disetel privat di YouTube."))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -356,6 +458,195 @@ class YouTubeMusicClient @Inject constructor() {
                     reason = "Gagal memproses data audio YouTube Music",
                     externalUri = externalUrl
                 )
+            }
+        }
+
+        /**
+         * Ekstrak playlistId dari berbagai format input (URL YouTube Music, URL YouTube biasa, youtu.be, atau ID langsung).
+         */
+        fun extractPlaylistId(input: String): String? {
+            val trimmed = input.trim().removeSurrounding("\"", "\"").removeSurrounding("'", "'")
+            if (trimmed.isBlank()) return null
+
+            // Cek parameter list= pada URL
+            val listRegex = Regex("[?&]list=([a-zA-Z0-9_-]+)")
+            val match = listRegex.find(trimmed)
+            if (match != null) {
+                return match.groupValues[1]
+            }
+
+            // Format ID langsung: minimal 10 karakter alfanumerik / strip / underscore dan bukan link http
+            if (trimmed.matches(Regex("^[a-zA-Z0-9_-]{10,}$")) && !trimmed.startsWith("http", ignoreCase = true)) {
+                return trimmed
+            }
+            return null
+        }
+
+        fun extractAlertMessage(json: String): String? {
+            return try {
+                val root = JSONObject(json)
+                val alerts = root.optJSONArray("alerts") ?: return null
+                if (alerts.length() > 0) {
+                    val alert = alerts.optJSONObject(0)?.optJSONObject("alertRenderer")
+                    val textObj = alert?.optJSONObject("text")
+                    val runText = textObj?.optJSONArray("runs")?.optJSONObject(0)?.optString("text")
+                    val simpleText = textObj?.optString("simpleText", null)
+                    runText ?: simpleText
+                } else null
+            } catch (_: Exception) {
+                null
+            }
+        }
+
+        /**
+         * Parsing response JSON InnerTube /browse menjadi WorkoutPlaylist.
+         * Mendukung format lockupViewModel (YouTube Web modern), playlistVideoRenderer (klasik),
+         * dan musicResponsiveListItemRenderer (YouTube Music).
+         */
+        fun parsePlaylistBrowseResponse(json: String, playlistId: String): WorkoutPlaylist? {
+            return try {
+                val root = JSONObject(json)
+
+                // Judul playlist
+                val metadata = root.optJSONObject("metadata")?.optJSONObject("playlistMetadataRenderer")
+                val header = root.optJSONObject("header")
+                val playlistHeader = header?.optJSONObject("playlistHeaderRenderer")
+                val musicDetailHeader = header?.optJSONObject("musicDetailHeaderRenderer")
+
+                val title = metadata?.optString("title")
+                    ?.takeIf { it.isNotBlank() }
+                    ?: playlistHeader?.optJSONObject("title")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text")
+                    ?.takeIf { it.isNotBlank() }
+                    ?: musicDetailHeader?.optJSONObject("title")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text")
+                    ?.takeIf { it.isNotBlank() }
+                    ?: "Playlist YouTube"
+
+                // Kumpulkan tracks
+                val tracks = mutableListOf<Track>()
+                val seenVideoIds = mutableSetOf<String>()
+                findPlaylistTracksRecursive(root, tracks, seenVideoIds)
+
+                if (tracks.isEmpty()) {
+                    return null
+                }
+
+                // Thumbnail playlist
+                var coverUrl: String? = null
+                val bannerThumbnails = playlistHeader?.optJSONObject("playlistHeaderBannerRenderer")
+                    ?.optJSONObject("banner")?.optJSONArray("thumbnails")
+                if (bannerThumbnails != null && bannerThumbnails.length() > 0) {
+                    coverUrl = bannerThumbnails.optJSONObject(bannerThumbnails.length() - 1)?.optString("url")
+                }
+                if (coverUrl.isNullOrBlank()) {
+                    coverUrl = tracks.firstOrNull()?.coverUrl
+                }
+
+                WorkoutPlaylist(
+                    id = "ytpl_$playlistId",
+                    name = title,
+                    description = "${tracks.size} lagu diimpor dari YouTube",
+                    source = MusicSource.YOUTUBE_MUSIC,
+                    coverUrl = coverUrl,
+                    tracks = tracks
+                )
+            } catch (_: Exception) {
+                null
+            }
+        }
+
+        private fun findPlaylistTracksRecursive(node: Any?, outTracks: MutableList<Track>, seenVideoIds: MutableSetOf<String>) {
+            when (node) {
+                is JSONObject -> {
+                    // 1. YouTube Web modern: lockupViewModel
+                    if (node.has("lockupViewModel")) {
+                        val lvm = node.optJSONObject("lockupViewModel")
+                        val contentId = lvm?.optString("contentId", "") ?: ""
+                        if (contentId.isNotBlank() && !seenVideoIds.contains(contentId)) {
+                            val metaVM = lvm?.optJSONObject("metadata")?.optJSONObject("lockupMetadataViewModel")
+                            val title = metaVM?.optJSONObject("title")?.optString("content", "") ?: ""
+                            val parts = metaVM?.optJSONObject("metadata")?.optJSONObject("contentMetadataViewModel")
+                                ?.optJSONArray("metadataRows")?.optJSONObject(0)?.optJSONArray("metadataParts")
+                            val artist = parts?.optJSONObject(0)?.optJSONObject("text")?.optString("content", "YouTube") ?: "YouTube"
+
+                            if (title.isNotBlank()) {
+                                seenVideoIds.add(contentId)
+                                outTracks.add(
+                                    Track(
+                                        id = "ytm_$contentId",
+                                        isrc = null,
+                                        title = title,
+                                        artist = artist,
+                                        album = title,
+                                        durationMs = 180000L,
+                                        coverUrl = "https://i.ytimg.com/vi/$contentId/hqdefault.jpg",
+                                        audioUrl = null,
+                                        platformIds = mapOf(MusicSource.YOUTUBE_MUSIC to contentId)
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    // 2. YouTube Web klasik: playlistVideoRenderer
+                    else if (node.has("playlistVideoRenderer")) {
+                        val pvr = node.optJSONObject("playlistVideoRenderer")
+                        val videoId = pvr?.optString("videoId", "") ?: ""
+                        if (videoId.isNotBlank() && !seenVideoIds.contains(videoId)) {
+                            val titleRuns = pvr?.optJSONObject("title")?.optJSONArray("runs")
+                            val title = titleRuns?.optJSONObject(0)?.optString("text", "")
+                                ?: pvr?.optJSONObject("title")?.optString("simpleText", "")
+                                ?: ""
+                            val artist = pvr?.optJSONObject("shortBylineText")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text", "YouTube") ?: "YouTube"
+                            val lengthSec = pvr?.optString("lengthSeconds", "180")?.toLongOrNull() ?: 180L
+                            val thumbs = pvr?.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
+                            val cover = if (thumbs != null && thumbs.length() > 0) {
+                                thumbs.optJSONObject(thumbs.length() - 1)?.optString("url")
+                            } else {
+                                "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+                            }
+
+                            if (title.isNotBlank()) {
+                                seenVideoIds.add(videoId)
+                                outTracks.add(
+                                    Track(
+                                        id = "ytm_$videoId",
+                                        isrc = null,
+                                        title = title,
+                                        artist = artist,
+                                        album = title,
+                                        durationMs = lengthSec * 1000L,
+                                        coverUrl = cover,
+                                        audioUrl = null,
+                                        platformIds = mapOf(MusicSource.YOUTUBE_MUSIC to videoId)
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    // 3. YouTube Music: musicResponsiveListItemRenderer
+                    else if (node.has("musicResponsiveListItemRenderer")) {
+                        val mrl = node.optJSONObject("musicResponsiveListItemRenderer")
+                        if (mrl != null) {
+                            val track = parseSingleTrackItem(mrl)
+                            if (track != null) {
+                                val vid = track.platformIds[MusicSource.YOUTUBE_MUSIC] ?: track.id.removePrefix("ytm_")
+                                if (vid.isNotBlank() && !seenVideoIds.contains(vid)) {
+                                    seenVideoIds.add(vid)
+                                    outTracks.add(track)
+                                }
+                            }
+                        }
+                    } else {
+                        val keys = node.keys()
+                        while (keys.hasNext()) {
+                            findPlaylistTracksRecursive(node.opt(keys.next()), outTracks, seenVideoIds)
+                        }
+                    }
+                }
+                is JSONArray -> {
+                    for (i in 0 until node.length()) {
+                        findPlaylistTracksRecursive(node.opt(i), outTracks, seenVideoIds)
+                    }
+                }
             }
         }
     }

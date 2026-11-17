@@ -2,6 +2,7 @@ package com.stridebeat.app.data.repository
 
 import android.content.Context
 import com.stridebeat.app.data.local.MusicPreferences
+import com.stridebeat.app.data.local.PlaylistStorage
 import com.stridebeat.app.data.remote.music.NeutralWorkoutPlaylists
 import com.stridebeat.app.data.remote.music.OnlineMusicSearchEngine
 import com.stridebeat.app.data.remote.youtubemusic.StreamResult
@@ -32,6 +33,7 @@ import javax.inject.Singleton
 class MusicRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val musicPreferences: MusicPreferences,
+    private val playlistStorage: PlaylistStorage,
     private val youTubeMusicClient: YouTubeMusicClient
 ) : MusicRepository {
 
@@ -50,7 +52,7 @@ class MusicRepositoryImpl @Inject constructor(
     private val _playbackPositionMs = MutableStateFlow(0L)
     override val playbackPositionMs: StateFlow<Long> = _playbackPositionMs.asStateFlow()
 
-    private val _availablePlaylists = MutableStateFlow<List<WorkoutPlaylist>>(NeutralWorkoutPlaylists.playlists)
+    private val _availablePlaylists = MutableStateFlow<List<WorkoutPlaylist>>(emptyList())
     override val availablePlaylists: StateFlow<List<WorkoutPlaylist>> = _availablePlaylists.asStateFlow()
 
     private val _activePlaylist = MutableStateFlow<WorkoutPlaylist?>(null)
@@ -72,6 +74,13 @@ class MusicRepositoryImpl @Inject constructor(
     private var lastSearchResults: List<Track> = emptyList()
 
     init {
+        // Sinkronisasi playlist pengguna dari PlaylistStorage
+        scope.launch {
+            playlistStorage.userPlaylists.collectLatest { userPlaylists ->
+                _availablePlaylists.value = userPlaylists
+            }
+        }
+
         // Sinkronisasi feature flag YouTube Music dari DataStore
         scope.launch {
             musicPreferences.youtubeMusicEnabled.collectLatest { enabled ->
@@ -366,5 +375,22 @@ class MusicRepositoryImpl @Inject constructor(
     override suspend fun tryPlayCurrentTrackOnSoundCloud() {
         clearPlaybackNotice()
         switchSource(MusicSource.SOUNDCLOUD)
+    }
+
+    override suspend fun importYouTubePlaylist(playlistIdOrUrl: String): Result<WorkoutPlaylist> {
+        val fetchResult = youTubeMusicClient.fetchPlaylist(playlistIdOrUrl)
+        if (fetchResult.isSuccess) {
+            val playlist = fetchResult.getOrThrow()
+            playlistStorage.savePlaylist(playlist)
+            selectPlaylist(playlist)
+        }
+        return fetchResult
+    }
+
+    override suspend fun deletePlaylist(playlistId: String) {
+        playlistStorage.deletePlaylist(playlistId)
+        if (_activePlaylist.value?.id == playlistId) {
+            _activePlaylist.value = null
+        }
     }
 }

@@ -71,13 +71,29 @@ Jika layanan YouTube Music mengalami gangguan eksternal atau skema InnerTube ber
 
 ---
 
-## 5. Checklist Verifikasi Live di HP (Dilakukan Pemilik)
+## 5. Fitur Impor Playlist YouTube (Hasil Respon Testing Fisik)
+
+Berdasarkan masukan pengujian live di perangkat fisik (pemilik tidak memerlukan template kaku 3-4 lagu dan menginginkan fitur playlist langsung dari YouTube agar tidak perlu mencari lagu satu per satu):
+1. **InnerTube Browse (`/browse`):**
+   - Mendukung link atau ID playlist publik dari YouTube Music maupun YouTube Web (`browseId: "VL" + playlistId`).
+   - Parsing adaptif mendukung struktur modern `lockupViewModel` (YouTube Web 2024), `playlistVideoRenderer` (klasik), dan `musicResponsiveListItemRenderer` (YouTube Music).
+2. **Penyimpanan Playlist Lokal (`PlaylistStorage`):**
+   - Menggunakan DataStore Preferences (`stridebeat_user_playlists`) sebagai penyimpanan JSON terisolasi tanpa merubah atau mengambil risiko migrasi skema SQLite Room.
+   - Pengguna dapat mengimpor playlist publik puluhan hingga 100+ lagu, memutarnya secara berurutan selama olahraga, dan menghapusnya kapan saja.
+3. **Empty State & UI Bersih:**
+   - Template kaku 3-lagu digantikan oleh daftar playlist pengguna yang fleksibel dengan tombol `+ Impor YouTube`.
+   - Dialog impor dilengkapi chip contoh cepat dan feedback visual status impor.
+
+---
+
+## 6. Checklist Verifikasi Live di HP (Dilakukan Pemilik)
 
 Checklist ini dilakukan secara langsung di perangkat fisik Android oleh pemilik sebelum mengklaim M6 sepenuhnya selesai:
 - [ ] **Build debug/release:** Unduh / instal APK `v0.2.0` di HP.
 - [ ] **Nyalakan YouTube Music:** Pengaturan → AKUN MUSIK → Toggle ON, label `Beta / Tidak Resmi` terlihat.
 - [ ] **Cari lagu YTM → Putar:** Cek judul, artis, durasi, cover muncul; audio berbunyi; seekbar/skip jalan; notifikasi media & lock screen tampil dengan kontrol playback.
+- [ ] **Impor Playlist YouTube:** Buka pemutar musik → tap "+ Impor YouTube" → tempel link playlist YouTube atau coba contoh (Pop Hits 100 lagu) → pastikan puluhan lagu terimpor dan siap diputar berurutan.
 - [ ] **Workout + Switcher:** Mulai workout (lari/jalan 10 menit) sambil lagu YTM berputar → ganti sumber ke SoundCloud di tengah sesi → pastikan timer, jarak, dan rute tidak ter-reset, dan lagu tercatat dengan sumber yang benar di Recap.
-- [ ] **Cek Lagu Cipher/Unavailable:** Cari lagu yang tidak dapat diputar langsung → pastikan muncul pesan ramah + tombol "Putar di SoundCloud" / "Buka di YouTube Music", bukan crash.
+- [ ] **Cek Lagu Cipher/Unavailable:** Cari lagu yang tidak dapat diputar langsung (misal lagu Sony/label ber-DRM) → pastikan muncul pesan ramah + tombol "Putar di SoundCloud" / "Buka di YouTube Music", bukan crash.
 - [ ] **Matikan Fitur (Kill-switch):** Toggle OFF di Pengaturan → app tetap berjalan mulus dengan SoundCloud saja.
 - [ ] **Regresi Fitur v0.0.12 & M5:** Login Google Firebase, GPS tracking + auto-pause, riwayat & ekspor GPX, koneksi & upload Strava.

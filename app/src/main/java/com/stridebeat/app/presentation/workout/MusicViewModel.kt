@@ -122,4 +122,34 @@ class MusicViewModel @Inject constructor(
             musicRepository.tryPlayCurrentTrackOnSoundCloud()
         }
     }
+
+    private val _isImportingPlaylist = MutableStateFlow(false)
+    val isImportingPlaylist: StateFlow<Boolean> = _isImportingPlaylist
+
+    fun importYouTubePlaylist(urlOrId: String, onResult: (Boolean, String?) -> Unit) {
+        val trimmed = urlOrId.trim()
+        if (trimmed.isBlank()) {
+            onResult(false, "Link atau ID playlist tidak boleh kosong.")
+            return
+        }
+
+        viewModelScope.launch {
+            _isImportingPlaylist.value = true
+            val result = musicRepository.importYouTubePlaylist(trimmed)
+            _isImportingPlaylist.value = false
+            if (result.isSuccess) {
+                val playlist = result.getOrNull()
+                onResult(true, "Berhasil mengimpor \"${playlist?.name}\" (${playlist?.tracks?.size ?: 0} lagu)")
+            } else {
+                val err = result.exceptionOrNull()?.message ?: "Gagal mengimpor playlist"
+                onResult(false, err)
+            }
+        }
+    }
+
+    fun deletePlaylist(playlistId: String) {
+        viewModelScope.launch {
+            musicRepository.deletePlaylist(playlistId)
+        }
+    }
 }

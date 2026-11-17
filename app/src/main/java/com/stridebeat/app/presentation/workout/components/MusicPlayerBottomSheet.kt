@@ -63,11 +63,20 @@ fun MusicPlayerBottomSheet(
     onSearchOnline: (String) -> Unit,
     onDismissNotice: () -> Unit = {},
     onPlayOnSoundCloud: () -> Unit = {},
+    isImportingPlaylist: Boolean = false,
+    onImportPlaylist: (String, (Boolean, String?) -> Unit) -> Unit = { _, _ -> },
+    onDeletePlaylist: (String) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
     val glass = StrideBeatGlass.colors
     var searchQuery by remember { mutableStateOf("") }
+
+    var showImportDialog by remember { mutableStateOf(false) }
+    var importUrlInput by remember { mutableStateOf("") }
+    var importFeedbackMessage by remember { mutableStateOf<String?>(null) }
+    var isImportSuccess by remember { mutableStateOf(false) }
+    var playlistToDelete by remember { mutableStateOf<WorkoutPlaylist?>(null) }
 
     val quickChips = listOf(
         "Rex Orange County",
@@ -673,18 +682,107 @@ fun MusicPlayerBottomSheet(
                     }
                 }
 
-                // 3. Playlist Workout Netral
-                if (availablePlaylists.isNotEmpty()) {
-                    item {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // 3. Playlist Workout (Impor dari YouTube)
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                text = "PLAYLIST WORKOUT NETRAL",
+                                text = "PLAYLIST WORKOUT",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = glass.textMuted,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.5.sp
                             )
+                            TextButton(
+                                onClick = {
+                                    importUrlInput = ""
+                                    importFeedbackMessage = null
+                                    isImportSuccess = false
+                                    showImportDialog = true
+                                },
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = null,
+                                    tint = YouTubeBrand,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Impor YouTube",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = YouTubeBrand,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
 
+                        if (availablePlaylists.isEmpty()) {
+                            GlassCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                cornerRadius = 18.dp,
+                                onClick = {
+                                    importUrlInput = ""
+                                    importFeedbackMessage = null
+                                    isImportSuccess = false
+                                    showImportDialog = true
+                                }
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(20.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(50.dp)
+                                            .clip(CircleShape)
+                                            .background(glass.glassElevatedTop),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.PlaylistAdd,
+                                            contentDescription = null,
+                                            tint = YouTubeBrand,
+                                            modifier = Modifier.size(28.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = "Belum Ada Playlist Tersimpan",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = glass.textPrimary,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Tempel link atau ID playlist dari YouTube / YouTube Music untuk memutar puluhan lagu workout tanpa ribet.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = glass.textSecondary,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                    GlassPrimaryButton(
+                                        onClick = {
+                                            importUrlInput = ""
+                                            importFeedbackMessage = null
+                                            isImportSuccess = false
+                                            showImportDialog = true
+                                        },
+                                        modifier = Modifier.height(38.dp),
+                                        cornerRadius = 12.dp
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Impor Playlist Sekarang", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        } else {
                             availablePlaylists.forEach { playlist ->
                                 val isActive = activePlaylist?.id == playlist.id
                                 GlassCard(
@@ -697,7 +795,7 @@ fun MusicPlayerBottomSheet(
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(14.dp),
+                                            .padding(12.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
@@ -708,7 +806,7 @@ fun MusicPlayerBottomSheet(
                                         ) {
                                             Box(
                                                 modifier = Modifier
-                                                    .size(46.dp)
+                                                    .size(48.dp)
                                                     .clip(RoundedCornerShape(12.dp))
                                                     .background(glass.glassElevatedTop),
                                                 contentAlignment = Alignment.Center
@@ -724,7 +822,7 @@ fun MusicPlayerBottomSheet(
                                                     Icon(
                                                         imageVector = Icons.Default.PlaylistPlay,
                                                         contentDescription = null,
-                                                        tint = glass.primary,
+                                                        tint = YouTubeBrand,
                                                         modifier = Modifier.size(24.dp)
                                                     )
                                                 }
@@ -735,10 +833,11 @@ fun MusicPlayerBottomSheet(
                                                     text = playlist.name,
                                                     style = MaterialTheme.typography.titleMedium,
                                                     color = glass.textPrimary,
-                                                    fontWeight = FontWeight.Bold
+                                                    fontWeight = FontWeight.Bold,
+                                                    maxLines = 1
                                                 )
                                                 Text(
-                                                    text = "${playlist.tracks.size} Lagu • ${playlist.description}",
+                                                    text = "${playlist.tracks.size} Lagu • Diimpor dari YouTube",
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = glass.textSecondary,
                                                     maxLines = 1
@@ -746,19 +845,33 @@ fun MusicPlayerBottomSheet(
                                             }
                                         }
 
-                                        FilledIconButton(
-                                            onClick = { onSelectPlaylist(playlist) },
-                                            modifier = Modifier.size(36.dp),
-                                            colors = IconButtonDefaults.filledIconButtonColors(
-                                                containerColor = if (isActive) glass.primary else glass.glassElevatedTop,
-                                                contentColor = if (isActive) glass.onPrimary else glass.textPrimary
-                                            )
-                                        ) {
-                                            Icon(
-                                                imageVector = if (isActive && isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                                contentDescription = "Putar Playlist",
-                                                modifier = Modifier.size(20.dp)
-                                            )
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            IconButton(
+                                                onClick = { playlistToDelete = playlist },
+                                                modifier = Modifier.size(34.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.DeleteOutline,
+                                                    contentDescription = "Hapus Playlist",
+                                                    tint = glass.textMuted,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+
+                                            FilledIconButton(
+                                                onClick = { onSelectPlaylist(playlist) },
+                                                modifier = Modifier.size(36.dp),
+                                                colors = IconButtonDefaults.filledIconButtonColors(
+                                                    containerColor = if (isActive) glass.primary else glass.glassElevatedTop,
+                                                    contentColor = if (isActive) glass.onPrimary else glass.textPrimary
+                                                )
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (isActive && isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                                    contentDescription = "Putar Playlist",
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -919,5 +1032,204 @@ fun MusicPlayerBottomSheet(
                 Spacer(modifier = Modifier.height(36.dp))
             }
         }
+    }
+
+    if (showImportDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!isImportingPlaylist) {
+                    showImportDialog = false
+                    importFeedbackMessage = null
+                }
+            },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlaylistAdd,
+                        contentDescription = null,
+                        tint = YouTubeBrand,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = "Impor Playlist YouTube",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = glass.textPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Masukkan URL atau ID playlist YouTube / YouTube Music. Semua lagu akan diambil dan disimpan ke playlist lokal Anda.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = glass.textSecondary
+                    )
+
+                    OutlinedTextField(
+                        value = importUrlInput,
+                        onValueChange = {
+                            importUrlInput = it
+                            importFeedbackMessage = null
+                            isImportSuccess = false
+                        },
+                        placeholder = {
+                            Text("https://music.youtube.com/playlist?list=...", color = glass.textMuted, fontSize = 12.sp)
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = YouTubeBrand,
+                            unfocusedBorderColor = glass.cardBorder,
+                            focusedTextColor = glass.textPrimary,
+                            unfocusedTextColor = glass.textPrimary,
+                            cursorColor = YouTubeBrand
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        trailingIcon = {
+                            if (importUrlInput.isNotBlank()) {
+                                IconButton(onClick = {
+                                    importUrlInput = ""
+                                    importFeedbackMessage = null
+                                    isImportSuccess = false
+                                }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Hapus", tint = glass.textMuted)
+                                }
+                            }
+                        }
+                    )
+
+                    // Quick test chip
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Contoh:",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = glass.textMuted
+                        )
+                        AssistChip(
+                            onClick = {
+                                importUrlInput = "https://music.youtube.com/playlist?list=PLMC9KNkIncKtPzgY-5rmhvj7fax8fdxoj"
+                                importFeedbackMessage = null
+                                isImportSuccess = false
+                            },
+                            label = { Text("Pop Hits 100 Lagu", fontSize = 11.sp) },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = glass.glassElevatedTop,
+                                labelColor = glass.primary
+                            ),
+                            border = null,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                    }
+
+                    if (isImportingPlaylist) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.padding(top = 4.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = YouTubeBrand,
+                                strokeWidth = 2.dp
+                            )
+                            Text(
+                                text = "Sedang mengambil data lagu dari YouTube...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = glass.textSecondary
+                            )
+                        }
+                    }
+
+                    if (importFeedbackMessage != null) {
+                        Text(
+                            text = importFeedbackMessage ?: "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isImportSuccess) glass.primary else StatusWarning,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                GlassPrimaryButton(
+                    onClick = {
+                        if (isImportSuccess) {
+                            showImportDialog = false
+                            importFeedbackMessage = null
+                            isImportSuccess = false
+                        } else {
+                            onImportPlaylist(importUrlInput) { success, msg ->
+                                isImportSuccess = success
+                                importFeedbackMessage = msg
+                            }
+                        }
+                    },
+                    modifier = Modifier.height(42.dp),
+                    cornerRadius = 12.dp
+                ) {
+                    Text(
+                        text = if (isImportSuccess) "Selesai" else if (isImportingPlaylist) "Mengimpor..." else "Impor Sekarang",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                if (!isImportingPlaylist) {
+                    TextButton(onClick = {
+                        showImportDialog = false
+                        importFeedbackMessage = null
+                        isImportSuccess = false
+                    }) {
+                        Text("Batal", color = glass.textSecondary)
+                    }
+                }
+            },
+            containerColor = glass.modalSurface,
+            shape = RoundedCornerShape(22.dp)
+        )
+    }
+
+    if (playlistToDelete != null) {
+        val target = playlistToDelete!!
+        AlertDialog(
+            onDismissRequest = { playlistToDelete = null },
+            title = {
+                Text(
+                    text = "Hapus Playlist?",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = glass.textPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "Hapus \"${target.name}\" dari daftar playlist Anda?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = glass.textSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeletePlaylist(target.id)
+                    playlistToDelete = null
+                }) {
+                    Text("Hapus", color = StatusWarning, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { playlistToDelete = null }) {
+                    Text("Batal", color = glass.textSecondary)
+                }
+            },
+            containerColor = glass.modalSurface,
+            shape = RoundedCornerShape(18.dp)
+        )
     }
 }
