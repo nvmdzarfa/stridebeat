@@ -105,12 +105,9 @@ jobs:
 
       - name: Run Unit Tests
         run: |
-          ./gradlew testDebugUnitTest --info --stacktrace || {
-            echo "::error::Unit Tests Failed. Printing reports below:"
-            for f in $(find app/build/reports/tests/testDebugUnitTest/ -name "*.html" 2>/dev/null); do
-              echo "FILE: $f"
-              cat "$f" | grep -A 5 -B 2 "failure" || true
-            done
+          ./gradlew testDebugUnitTest --stacktrace > test_build.log 2>&1 || {
+            echo "::error::Gradle testDebugUnitTest failed. Last 100 log lines:"
+            tail -n 100 test_build.log
             exit 1
           }
 
