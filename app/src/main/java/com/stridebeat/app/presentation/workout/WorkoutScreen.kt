@@ -31,6 +31,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.stridebeat.app.domain.model.MusicSource
 import com.stridebeat.app.domain.model.WorkoutSession
+import com.stridebeat.app.domain.model.WorkoutTarget
+import com.stridebeat.app.domain.model.WorkoutTargetType
 import com.stridebeat.app.domain.model.WorkoutType
 import com.stridebeat.app.presentation.theme.*
 import com.stridebeat.app.presentation.workout.components.MusicPlayerBottomSheet
@@ -56,6 +58,8 @@ fun WorkoutScreen(
     val calories by workoutViewModel.caloriesKcal.collectAsStateWithLifecycle()
     val routePoints by workoutViewModel.routePoints.collectAsStateWithLifecycle()
     val gpsInterrupted by workoutViewModel.gpsInterrupted.collectAsStateWithLifecycle()
+    val selectedTarget by workoutViewModel.selectedTarget.collectAsStateWithLifecycle()
+    val activeTarget by workoutViewModel.workoutTarget.collectAsStateWithLifecycle()
 
     // Music State
     val activeSource by musicViewModel.activeSource.collectAsStateWithLifecycle()
@@ -82,7 +86,7 @@ fun WorkoutScreen(
     ) { permissions ->
         val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
         if (fineLocationGranted && !isTracking) {
-            workoutViewModel.startWorkout(context, selectedWorkoutType)
+            workoutViewModel.startWorkout(context, selectedWorkoutType, selectedTarget)
             musicViewModel.play()
         }
     }
@@ -251,6 +255,80 @@ fun WorkoutScreen(
                 }
             }
 
+            // TARGET LATIHAN (Feature B)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "TARGET LATIHAN",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = glass.textMuted,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Text(
+                        text = if (!selectedTarget.isActive) "Bebas"
+                        else when (selectedTarget.type) {
+                            WorkoutTargetType.DISTANCE -> "${String.format(Locale.US, "%.0f", selectedTarget.targetDistanceMeters / 1000.0)} km"
+                            WorkoutTargetType.DURATION -> "${selectedTarget.targetDurationMs / 60000} mnt"
+                            WorkoutTargetType.NONE -> "Bebas"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = glass.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                val targetOptions = listOf(
+                    WorkoutTarget() to "Bebas",
+                    WorkoutTarget(WorkoutTargetType.DISTANCE, targetDistanceMeters = 1000.0) to "1 km",
+                    WorkoutTarget(WorkoutTargetType.DISTANCE, targetDistanceMeters = 3000.0) to "3 km",
+                    WorkoutTarget(WorkoutTargetType.DISTANCE, targetDistanceMeters = 5000.0) to "5 km",
+                    WorkoutTarget(WorkoutTargetType.DISTANCE, targetDistanceMeters = 10000.0) to "10 km",
+                    WorkoutTarget(WorkoutTargetType.DURATION, targetDurationMs = 15 * 60 * 1000L) to "15 mnt",
+                    WorkoutTarget(WorkoutTargetType.DURATION, targetDurationMs = 30 * 60 * 1000L) to "30 mnt",
+                    WorkoutTarget(WorkoutTargetType.DURATION, targetDurationMs = 45 * 60 * 1000L) to "45 mnt",
+                    WorkoutTarget(WorkoutTargetType.DURATION, targetDurationMs = 60 * 60 * 1000L) to "60 mnt"
+                )
+
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 2.dp)
+                ) {
+                    items(targetOptions.size) { idx ->
+                        val (optTarget, label) = targetOptions[idx]
+                        val isSelected = (optTarget.type == selectedTarget.type) &&
+                            (optTarget.targetDistanceMeters == selectedTarget.targetDistanceMeters) &&
+                            (optTarget.targetDurationMs == selectedTarget.targetDurationMs)
+
+                        GlassCard(
+                            modifier = Modifier.height(38.dp),
+                            cornerRadius = 14.dp,
+                            elevated = isSelected,
+                            accentBorderColor = if (isSelected) glass.primary else null,
+                            onClick = { workoutViewModel.selectTarget(optTarget) }
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .padding(horizontal = 14.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (isSelected) glass.primary else glass.textSecondary,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // Map Box Preview
             Box(
                 modifier = Modifier
@@ -385,7 +463,7 @@ fun WorkoutScreen(
                         context, Manifest.permission.ACCESS_FINE_LOCATION
                     ) == PackageManager.PERMISSION_GRANTED
                     if (hasFine) {
-                        workoutViewModel.startWorkout(context, selectedWorkoutType)
+                        workoutViewModel.startWorkout(context, selectedWorkoutType, selectedTarget)
                         musicViewModel.play()
                     } else {
                         startWorkoutPermissionLauncher.launch(
@@ -471,6 +549,69 @@ fun WorkoutScreen(
                             style = MaterialTheme.typography.labelMedium,
                             color = statusColor,
                             fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+
+            // Target Progress Card (Feature B)
+            if (activeTarget.isActive) {
+                val progress = activeTarget.calculateProgress(distanceMeters, durationMs)
+                val progressPercent = (progress * 100).toInt()
+                val targetDesc = when (activeTarget.type) {
+                    WorkoutTargetType.DISTANCE -> "${String.format(Locale.US, "%.1f", activeTarget.targetDistanceMeters / 1000.0)} km"
+                    WorkoutTargetType.DURATION -> "${activeTarget.targetDurationMs / 60000} mnt"
+                    WorkoutTargetType.NONE -> ""
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    cornerRadius = 16.dp,
+                    accentBorderColor = if (progress >= 1f) glass.primary else null
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (progress >= 1f) Icons.Default.CheckCircle else Icons.Default.Flag,
+                                    contentDescription = null,
+                                    tint = if (progress >= 1f) glass.primary else glass.textSecondary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = if (progress >= 1f) "Target $targetDesc Tercapai! 🎉" else "Target: $targetDesc",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (progress >= 1f) glass.primary else glass.textPrimary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Text(
+                                text = "$progressPercent%",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = glass.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp)),
+                            color = glass.primary,
+                            trackColor = glass.glassElevatedTop
                         )
                     }
                 }

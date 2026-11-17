@@ -150,6 +150,14 @@ class VoiceAudioCueManager(
         speak(VoiceCueFormatter.formatWorkoutResumed(), flush = true)
     }
 
+    fun speakTargetHalfway(targetDesc: String) {
+        speak(VoiceCueFormatter.formatTargetHalfway(targetDesc), flush = true)
+    }
+
+    fun speakTargetReached(targetDesc: String) {
+        speak(VoiceCueFormatter.formatTargetReached(targetDesc), flush = true)
+    }
+
     fun speakWorkoutCompleted(distanceMeters: Double, durationMs: Long) {
         speak(VoiceCueFormatter.formatWorkoutCompleted(distanceMeters, durationMs), flush = true)
     }

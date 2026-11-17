@@ -26,6 +26,14 @@ object VoiceCueFormatter {
         return "Workout dilanjutkan."
     }
 
+    fun formatTargetHalfway(targetDesc: String): String {
+        return "Setengah target $targetDesc tercapai! Pertahankan ritmemu."
+    }
+
+    fun formatTargetReached(targetDesc: String): String {
+        return "Target $targetDesc tercapai! Kerja luar biasa!"
+    }
+
     fun formatWorkoutCompleted(distanceMeters: Double, durationMs: Long): String {
         val distText = if (distanceMeters >= 1000.0) {
             val km = distanceMeters / 1000.0

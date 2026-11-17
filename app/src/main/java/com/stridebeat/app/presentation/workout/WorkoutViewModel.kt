@@ -7,11 +7,14 @@ import com.stridebeat.app.data.local.WorkoutPreferences
 import com.stridebeat.app.domain.model.LatLng
 import com.stridebeat.app.domain.model.WorkoutSession
 import com.stridebeat.app.domain.model.WorkoutType
+import com.stridebeat.app.domain.model.WorkoutTarget
 import com.stridebeat.app.service.TrackingService
 import com.stridebeat.app.service.TrackingStateManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -31,6 +34,10 @@ class WorkoutViewModel @Inject constructor(
     val caloriesKcal: StateFlow<Double> = TrackingStateManager.caloriesKcal
     val routePoints: StateFlow<List<LatLng>> = TrackingStateManager.routePoints
     val gpsInterrupted: StateFlow<Boolean> = TrackingStateManager.gpsInterrupted
+    val workoutTarget: StateFlow<WorkoutTarget> = TrackingStateManager.workoutTarget
+
+    private val _selectedTarget = MutableStateFlow(WorkoutTarget())
+    val selectedTarget: StateFlow<WorkoutTarget> = _selectedTarget.asStateFlow()
 
     val voiceCueEnabled: StateFlow<Boolean> = workoutPreferences.voiceCueEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -50,6 +57,10 @@ class WorkoutViewModel @Inject constructor(
                 TrackingStateManager.autoPauseEnabled = enabled
             }
         }
+    }
+
+    fun selectTarget(target: WorkoutTarget) {
+        _selectedTarget.value = target
     }
 
     fun setVoiceCueEnabled(enabled: Boolean) {
@@ -77,8 +88,12 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
-    fun startWorkout(context: Context, type: WorkoutType = WorkoutType.RUN) {
-        TrackingService.start(context, type)
+    fun startWorkout(
+        context: Context,
+        type: WorkoutType = WorkoutType.RUN,
+        target: WorkoutTarget = _selectedTarget.value
+    ) {
+        TrackingService.start(context, type, target)
     }
 
     fun pauseWorkout(context: Context) {

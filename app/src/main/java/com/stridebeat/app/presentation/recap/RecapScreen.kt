@@ -60,6 +60,7 @@ fun RecapScreen(
 
     var showStravaPreviewDialog by remember { mutableStateOf(false) }
     var showStravaConnectPromptDialog by remember { mutableStateOf(false) }
+    var showStoryPreviewDialog by remember { mutableStateOf(false) }
     var editActivityName by remember { mutableStateOf("") }
     var editActivityDescription by remember { mutableStateOf("") }
 
@@ -258,6 +259,15 @@ fun RecapScreen(
             },
             containerColor = glass.modalSurface,
             shape = RoundedCornerShape(22.dp)
+        )
+    }
+
+    // Dialog Preview Story Card 9:16 (Feature D)
+    if (showStoryPreviewDialog) {
+        StoryCardPreviewDialog(
+            session = currentSession,
+            context = context,
+            onDismiss = { showStoryPreviewDialog = false }
         )
     }
 
@@ -542,6 +552,64 @@ fun RecapScreen(
                     }
                 }
 
+                // Bagikan ke Story 9:16 (Feature D)
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    cornerRadius = 16.dp,
+                    elevated = true,
+                    accentBorderColor = glass.primary,
+                    onClick = { showStoryPreviewDialog = true }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(glass.primary.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = glass.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Column {
+                                Text(
+                                    text = "Bagikan Story Card (9:16)",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = glass.textPrimary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Kartu visual siap post ke Instagram & WhatsApp",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = glass.textSecondary,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = glass.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
                 OutlinedButton(
                     onClick = { shareWorkoutSummary(context, currentSession) },
                     modifier = Modifier
@@ -553,7 +621,7 @@ fun RecapScreen(
                 ) {
                     Icon(imageVector = Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Bagikan Ringkasan Lari", fontWeight = FontWeight.Bold)
+                    Text(text = "Bagikan Teks Ringkasan Lari", fontWeight = FontWeight.Bold)
                 }
 
                 OutlinedButton(

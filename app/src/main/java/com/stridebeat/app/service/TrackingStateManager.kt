@@ -45,6 +45,9 @@ object TrackingStateManager {
     private val _gpsInterrupted = MutableStateFlow(false)
     val gpsInterrupted: StateFlow<Boolean> = _gpsInterrupted.asStateFlow()
 
+    private val _workoutTarget = MutableStateFlow(com.stridebeat.app.domain.model.WorkoutTarget())
+    val workoutTarget: StateFlow<com.stridebeat.app.domain.model.WorkoutTarget> = _workoutTarget.asStateFlow()
+
     var workoutType: WorkoutType = WorkoutType.RUN
     var autoPauseEnabled: Boolean = true
 
@@ -52,7 +55,7 @@ object TrackingStateManager {
     private var lastRecordedLocation: LatLng? = null
     private var lastMovementTimestamp: Long = 0L
 
-    fun startSession(type: WorkoutType = WorkoutType.RUN) {
+    fun startSession(type: WorkoutType = WorkoutType.RUN, target: com.stridebeat.app.domain.model.WorkoutTarget = com.stridebeat.app.domain.model.WorkoutTarget()) {
         workoutType = type
         sessionStartTime = System.currentTimeMillis()
         lastMovementTimestamp = sessionStartTime
@@ -68,6 +71,7 @@ object TrackingStateManager {
         _caloriesKcal.value = 0.0
         _routePoints.value = emptyList()
         _gpsInterrupted.value = false
+        _workoutTarget.value = target
     }
 
     fun pauseSession(manual: Boolean = true) {

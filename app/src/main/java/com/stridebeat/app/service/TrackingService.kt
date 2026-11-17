@@ -42,6 +42,9 @@ class TrackingService : Service() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
 
+    private var hasAnnounced50Percent = false
+    private var hasAnnounced100Percent = false
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
@@ -68,7 +71,12 @@ class TrackingService : Service() {
             ACTION_START -> {
                 val typeName = intent.getStringExtra(EXTRA_WORKOUT_TYPE) ?: WorkoutType.RUN.name
                 val workoutType = try { WorkoutType.valueOf(typeName) } catch (_: Exception) { WorkoutType.RUN }
-                startForegroundTracking(workoutType)
+                val targetTypeName = intent.getStringExtra(EXTRA_TARGET_TYPE) ?: com.stridebeat.app.domain.model.WorkoutTargetType.NONE.name
+                val targetType = try { com.stridebeat.app.domain.model.WorkoutTargetType.valueOf(targetTypeName) } catch (_: Exception) { com.stridebeat.app.domain.model.WorkoutTargetType.NONE }
+                val targetDistance = intent.getDoubleExtra(EXTRA_TARGET_DISTANCE, 0.0)
+                val targetDuration = intent.getLongExtra(EXTRA_TARGET_DURATION, 0L)
+                val target = com.stridebeat.app.domain.model.WorkoutTarget(type = targetType, targetDistanceMeters = targetDistance, targetDurationMs = targetDuration)
+                startForegroundTracking(workoutType, target)
             }
             ACTION_PAUSE -> {
                 TrackingStateManager.pauseSession(manual = true)
@@ -88,8 +96,8 @@ class TrackingService : Service() {
     }
 
     @SuppressLint("MissingPermission")
-    private fun startForegroundTracking(workoutType: WorkoutType) {
-        TrackingStateManager.startSession(workoutType)
+    private fun startForegroundTracking(workoutType: WorkoutType, target: com.stridebeat.app.domain.model.WorkoutTarget = com.stridebeat.app.domain.model.WorkoutTarget()) {
+        TrackingStateManager.startSession(workoutType, target)
 
         val notification = buildTrackingNotification("Mempersiapkan GPS...", "00:00")
         startForeground(NOTIFICATION_ID, notification)
@@ -110,6 +118,8 @@ class TrackingService : Service() {
         // Voice cue: Sesi dimulai
         lastAnnouncedMilestone = 0
         lastMilestoneElapsedMs = 0L
+        hasAnnounced50Percent = false
+        hasAnnounced100Percent = false
         voiceAudioCueManager.speakWorkoutStarted(workoutType)
 
         // Timer ticker setiap detik
@@ -118,11 +128,12 @@ class TrackingService : Service() {
             while (isActive) {
                 delay(1000L)
                 TrackingStateManager.addDurationTick(1000L)
+                checkTargetMilestones()
                 updateNotification()
             }
         }
 
-        // Monitor jarak untuk Voice Audio Cues (KM Split)
+        // Monitor jarak untuk Voice Audio Cues (KM Split) & Target Milestones
         splitJob?.cancel()
         splitJob = serviceScope.launch {
             var intervalKm = workoutPreferences.getVoiceCueIntervalKmOnce().coerceAtLeast(0.5)
@@ -133,6 +144,7 @@ class TrackingService : Service() {
             }
 
             TrackingStateManager.distanceMeters.collect { distance ->
+                checkTargetMilestones()
                 val intervalMeters = intervalKm * 1000.0
                 val currentMilestone = (distance / intervalMeters).toInt()
                 if (currentMilestone > lastAnnouncedMilestone && currentMilestone > 0) {
@@ -166,6 +178,33 @@ class TrackingService : Service() {
         }
     }
 
+    private fun checkTargetMilestones() {
+        val target = TrackingStateManager.workoutTarget.value
+        if (!target.isActive) return
+        val currentDist = TrackingStateManager.distanceMeters.value
+        val currentDuration = TrackingStateManager.elapsedDurationMs.value
+        val progress = target.calculateProgress(currentDist, currentDuration)
+
+        val targetDesc = when (target.type) {
+            com.stridebeat.app.domain.model.WorkoutTargetType.DISTANCE -> {
+                String.format(Locale.US, "%.1f kilometer", target.targetDistanceMeters / 1000.0)
+            }
+            com.stridebeat.app.domain.model.WorkoutTargetType.DURATION -> {
+                val mins = target.targetDurationMs / 60000L
+                "$mins menit"
+            }
+            com.stridebeat.app.domain.model.WorkoutTargetType.NONE -> ""
+        }
+
+        if (progress >= 0.5f && !hasAnnounced50Percent && progress < 1.0f) {
+            hasAnnounced50Percent = true
+            voiceAudioCueManager.speakTargetHalfway(targetDesc)
+        } else if (progress >= 1.0f && !hasAnnounced100Percent) {
+            hasAnnounced100Percent = true
+            voiceAudioCueManager.speakTargetReached(targetDesc)
+        }
+    }
+
     private fun updateNotification() {
         if (!TrackingStateManager.isTracking.value) return
 
@@ -174,7 +213,16 @@ class TrackingService : Service() {
         val paceStr = TrackingUtils.formatPace(TrackingStateManager.currentPaceMinPerKm.value)
         val status = if (TrackingStateManager.isPaused.value) " (Dijeda)" else if (TrackingStateManager.isAutoPaused.value) " (Auto-Pause)" else ""
 
-        val content = String.format(Locale.US, "%.2f km • Pace %s%s", distanceKm, paceStr, status)
+        val target = TrackingStateManager.workoutTarget.value
+        val targetStr = if (target.isActive) {
+            val progressPercent = (target.calculateProgress(
+                TrackingStateManager.distanceMeters.value,
+                TrackingStateManager.elapsedDurationMs.value
+            ) * 100).toInt()
+            " • Target $progressPercent%"
+        } else ""
+
+        val content = String.format(Locale.US, "%.2f km • Pace %s%s%s", distanceKm, paceStr, targetStr, status)
         val notification = buildTrackingNotification(content, durationStr)
 
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -271,11 +319,21 @@ class TrackingService : Service() {
         const val ACTION_STOP = "ACTION_STOP_TRACKING"
 
         const val EXTRA_WORKOUT_TYPE = "EXTRA_WORKOUT_TYPE"
+        const val EXTRA_TARGET_TYPE = "EXTRA_TARGET_TYPE"
+        const val EXTRA_TARGET_DISTANCE = "EXTRA_TARGET_DISTANCE"
+        const val EXTRA_TARGET_DURATION = "EXTRA_TARGET_DURATION"
 
-        fun start(context: Context, type: WorkoutType) {
+        fun start(
+            context: Context,
+            type: WorkoutType,
+            target: com.stridebeat.app.domain.model.WorkoutTarget = com.stridebeat.app.domain.model.WorkoutTarget()
+        ) {
             val intent = Intent(context, TrackingService::class.java).apply {
                 action = ACTION_START
                 putExtra(EXTRA_WORKOUT_TYPE, type.name)
+                putExtra(EXTRA_TARGET_TYPE, target.type.name)
+                putExtra(EXTRA_TARGET_DISTANCE, target.targetDistanceMeters)
+                putExtra(EXTRA_TARGET_DURATION, target.targetDurationMs)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
