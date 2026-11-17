@@ -857,10 +857,10 @@ fun SettingsScreen(
                                     modifier = Modifier
                                         .weight(1f)
                                         .clip(RoundedCornerShape(12.dp))
-                                        .background(if (isSelected) glass.primary.copy(alpha = 0.2f) else glass.cardBackground)
+                                        .background(if (isSelected) glass.primary.copy(alpha = 0.2f) else glass.glassSurfaceTop)
                                         .border(
                                             width = 1.dp,
-                                            color = if (isSelected) glass.primary else glass.cardBorder,
+                                            color = if (isSelected) glass.primary else glass.glassBorderStart,
                                             shape = RoundedCornerShape(12.dp)
                                         )
                                         .clickable { workoutViewModel.setVoiceCueIntervalKm(interval) }

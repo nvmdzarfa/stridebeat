@@ -104,24 +104,14 @@ jobs:
           echo "Extracted App Version: $VERSION"
 
       - name: Run Unit Tests
-        run: |
-          ./gradlew testDebugUnitTest --stacktrace > test_build.log 2>&1 || {
-            ERR=$(grep -m 1 -A 5 "e: " test_build.log | tr '\n' ' ')
-            if [ -z "$ERR" ]; then
-              ERR=$(tail -n 15 test_build.log | tr '\n' ' ')
-            fi
-            echo "::error title=Build Error::$ERR"
-            exit 1
-          }
+        run: ./gradlew testDebugUnitTest --stacktrace
 
       - name: Upload Test Report on Failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: unit-test-results
-          path: |
-            app/build/reports/tests/
-            test_build.log
+          path: app/build/reports/tests/
 
       - name: Build APK with Gradle
         run: |

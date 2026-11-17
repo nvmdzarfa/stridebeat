@@ -13,7 +13,7 @@ object VoiceCueFormatter {
         val typeIndo = when (type) {
             WorkoutType.RUN -> "Lari"
             WorkoutType.WALK -> "Jalan santai"
-            WorkoutType.CYCLE -> "Bersepeda"
+            WorkoutType.RIDE -> "Bersepeda"
         }
         return "Sesi $typeIndo dimulai. Selamat berolahraga!"
     }

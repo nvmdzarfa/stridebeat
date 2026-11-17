@@ -12,7 +12,7 @@ class VoiceCueFormatterTest {
     fun testFormatWorkoutStarted() {
         assertEquals("Sesi Lari dimulai. Selamat berolahraga!", VoiceCueFormatter.formatWorkoutStarted(WorkoutType.RUN))
         assertEquals("Sesi Jalan santai dimulai. Selamat berolahraga!", VoiceCueFormatter.formatWorkoutStarted(WorkoutType.WALK))
-        assertEquals("Sesi Bersepeda dimulai. Selamat berolahraga!", VoiceCueFormatter.formatWorkoutStarted(WorkoutType.CYCLE))
+        assertEquals("Sesi Bersepeda dimulai. Selamat berolahraga!", VoiceCueFormatter.formatWorkoutStarted(WorkoutType.RIDE))
     }
 
     @Test
