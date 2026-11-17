@@ -152,7 +152,7 @@ class MusicRepositoryImpl @Inject constructor(
                     // Fallback otomatis transparan ke SoundCloud audio resolver
                     val query = "${playableTrack.title} ${playableTrack.artist}"
                     val scCandidates = OnlineMusicSearchEngine.searchTracks(query)
-                    val bestMatch = TrackMatchingEngine.findBestMatch(playableTrack, scCandidates)
+                    val bestMatch = TrackMatchingEngine.findBestMatch(playableTrack, scCandidates) ?: scCandidates.firstOrNull()
 
                     if (bestMatch != null && !bestMatch.audioUrl.isNullOrBlank()) {
                         playableTrack = playableTrack.copy(

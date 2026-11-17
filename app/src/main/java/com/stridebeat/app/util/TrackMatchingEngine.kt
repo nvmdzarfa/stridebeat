@@ -76,7 +76,7 @@ object TrackMatchingEngine {
                     candTitleNorm.contains(targetArtistNorm) // Artis seringkali tercantum di judul di SoundCloud
 
             titleMatched && artistMatched
-        } ?: candidates.firstOrNull()
+        }
     }
 
     /**
@@ -101,7 +101,7 @@ object TrackMatchingEngine {
 
     private fun normalizeString(input: String): String {
         return input.lowercase()
-            .replace(Regex("\\[.*?\\]|\\(.*?\\)"), "") // Hapus teks dalam tanda kurung seperti (Remastered)
+            .replace(Regex("[\\[\\]\\(\\)\\-_]"), " ")
             .replace(Regex("[^a-zA-Z0-9\\uAC00-\\uD7A3\\u3040-\\u30FF\\u4E00-\\u9FFF]"), " ") // Sisakan alfanumerik & CJK / Hangul
             .replace(Regex("\\s+"), " ")
             .trim()
