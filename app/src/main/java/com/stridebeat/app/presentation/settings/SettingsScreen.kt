@@ -252,7 +252,6 @@ fun SettingsScreen(
                     onClick = {
                         authViewModel.disconnectStrava()
                         authViewModel.disconnectSpotify()
-                        authViewModel.disconnectYouTubeMusic()
                         accountViewModel.signOut()
                         showDeleteConfirmDialog = false
                     },

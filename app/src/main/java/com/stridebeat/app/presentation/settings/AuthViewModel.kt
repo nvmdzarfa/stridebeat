@@ -59,6 +59,12 @@ class AuthViewModel @Inject constructor(
         authRepository.refreshYouTubeMusicFeatureFlag(enabled)
     }
 
+    fun disconnectYouTubeMusic() {
+        viewModelScope.launch {
+            authRepository.disconnectYouTubeMusic()
+        }
+    }
+
     fun handleAuthCallback(uri: Uri) {
         val host = uri.host
         val code = uri.getQueryParameter("code")
