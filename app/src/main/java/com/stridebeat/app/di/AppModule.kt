@@ -64,11 +64,13 @@ object AppModule {
     fun provideMusicRepository(
         @ApplicationContext context: Context,
         musicPreferences: com.stridebeat.app.data.local.MusicPreferences,
+        playlistStorage: com.stridebeat.app.data.local.PlaylistStorage,
         youTubeMusicClient: com.stridebeat.app.data.remote.youtubemusic.YouTubeMusicClient
     ): com.stridebeat.app.domain.repository.MusicRepository {
         return com.stridebeat.app.data.repository.MusicRepositoryImpl(
             context,
             musicPreferences,
+            playlistStorage,
             youTubeMusicClient
         )
     }

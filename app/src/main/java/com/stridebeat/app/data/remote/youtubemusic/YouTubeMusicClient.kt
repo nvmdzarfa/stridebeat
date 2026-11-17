@@ -554,7 +554,7 @@ class YouTubeMusicClient @Inject constructor() {
             }
         }
 
-        private fun findPlaylistTracksRecursive(node: Any?, outTracks: MutableList<Track>, seenVideoIds: MutableSetOf<String>) {
+        private fun findPlaylistTracksRecursive(node: Any?, outTracks: MutableList<Track>, seenVideoIds: MutableSet<String>) {
             when (node) {
                 is JSONObject -> {
                     // 1. YouTube Web modern: lockupViewModel

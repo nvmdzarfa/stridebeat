@@ -1083,7 +1083,7 @@ fun MusicPlayerBottomSheet(
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = YouTubeBrand,
-                            unfocusedBorderColor = glass.cardBorder,
+                            unfocusedBorderColor = glass.glassBorderStart,
                             focusedTextColor = glass.textPrimary,
                             unfocusedTextColor = glass.textPrimary,
                             cursorColor = YouTubeBrand
